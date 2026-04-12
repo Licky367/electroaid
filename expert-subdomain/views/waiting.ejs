@@ -1,0 +1,300 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+<title>Waiting For Client Initiation | Electro-Aid Technologies</title>
+
+<style>
+*{box-sizing:border-box;margin:0;padding:0;}
+
+body{
+font-family:Arial,sans-serif;
+background:#8B4513;
+color:#333;
+padding-bottom:70px;
+}
+
+header{
+position:sticky;
+top:0;
+background:#A0522D;
+text-align:center;
+padding:10px;
+border-bottom-left-radius:25px;
+border-bottom-right-radius:25px;
+box-shadow:0 4px 10px rgba(0,0,0,0.3);
+}
+
+header h1{font-size:1.8rem;margin-bottom:4px;}
+header p{font-style:italic;color:#fff;font-size:0.9rem;}
+
+.top-menu{
+position:sticky;
+top:95px;
+background:#D2691E;
+display:flex;
+justify-content:space-around;
+padding:8px 0;
+box-shadow:0 4px 10px rgba(0,0,0,0.3);
+}
+
+.top-menu a{
+color:white;
+font-size:0.85rem;
+display:flex;
+flex-direction:column;
+align-items:center;
+text-decoration:none;
+}
+
+main{
+max-width:750px;
+margin:30px auto;
+padding:0 15px;
+}
+
+section{
+background:#fff;
+padding:25px;
+border-radius:18px;
+box-shadow:0 4px 12px rgba(0,0,0,0.15);
+}
+
+h2{
+margin-bottom:20px;
+font-size:1.6rem;
+color:#8B4513;
+}
+
+ol{padding-left:20px;}
+
+li{
+background:#f7f7f7;
+padding:12px;
+margin-bottom:12px;
+border-radius:10px;
+display:flex;
+justify-content:space-between;
+align-items:center;
+}
+
+.assignment-info{font-size:0.95rem;}
+.assignment-info strong{color:#A0522D;}
+
+.time-remaining{
+font-size:0.85rem;
+color:#555;
+margin-top:4px;
+}
+
+.view-btn{
+padding:6px 10px;
+border:none;
+border-radius:6px;
+background:#D2691E;
+color:white;
+cursor:pointer;
+}
+
+.view-btn:hover{background:#A0522D;}
+
+.empty{
+text-align:center;
+padding:20px;
+}
+
+footer{
+position:fixed;
+bottom:0;
+width:100%;
+text-align:center;
+padding:12px;
+background:#A0522D;
+color:#fff;
+border-top-left-radius:25px;
+border-top-right-radius:25px;
+font-size:0.85rem;
+}
+</style>
+
+</head>
+
+<body>
+
+<header>
+<h1>Electro-Aid Technologies</h1>
+<p>Waiting for Client Initiation</p>
+</header>
+
+<!-- ✅ FIXED ROUTES -->
+<div class="top-menu">
+<a href="/expert">🏠 Home</a>
+<a href="/expert/assignments/pending">📁 Available</a>
+<a href="/expert/assignments/waiting">⏳ Waiting</a>
+<a href="/expert/assignments/work">🛠 Work</a>
+</div>
+
+<main>
+<section>
+
+<h2>
+Waiting For Client Initiation
+(<span id="count">0</span>)
+</h2>
+
+<ol id="waitingList"></ol>
+
+<div id="empty" class="empty" style="display:none">
+No assignments waiting for client initiation.
+</div>
+
+</section>
+</main>
+
+<footer>
+<p>&copy; 2026 Electro-Aid Technologies</p>
+</footer>
+
+<script>
+
+/* ================= XSS ================= */
+
+function escapeHTML(text){
+if(!text) return ""
+return text
+.replace(/&/g,"&amp;")
+.replace(/</g,"&lt;")
+.replace(/>/g,"&gt;")
+.replace(/"/g,"&quot;")
+.replace(/'/g,"&#039;")
+}
+
+/* ================= CACHE ================= */
+
+let assignmentsCache = []
+
+/* ================= TIME ================= */
+
+function getTimeRemaining(dueDate){
+
+const now = new Date().getTime()
+const due = new Date(dueDate).getTime()
+const diff = due - now
+
+if(diff <= 0) return "Deadline passed"
+
+const d = Math.floor(diff/(1000*60*60*24))
+const h = Math.floor((diff%(1000*60*60*24))/(1000*60*60))
+const m = Math.floor((diff%(1000*60*60))/(1000*60))
+const s = Math.floor((diff%(1000*60))/1000)
+
+return `${d}d ${h}h ${m}m ${s}s remaining`
+}
+
+/* ================= RENDER ================= */
+
+function renderWaiting(){
+
+const list = document.getElementById("waitingList")
+const empty = document.getElementById("empty")
+
+list.innerHTML = ""
+
+if(assignmentsCache.length === 0){
+empty.style.display = "block"
+return
+}
+
+empty.style.display = "none"
+
+/* SORT USING acceptedAt */
+assignmentsCache.sort(
+(a,b)=>new Date(b.acceptedAt)-new Date(a.acceptedAt)
+)
+
+assignmentsCache.forEach(a=>{
+
+const reference = escapeHTML(a.reference)
+const title = escapeHTML(a.title)
+
+const li = document.createElement("li")
+
+li.innerHTML = `
+<div class="assignment-info">
+<strong>${reference}</strong> — ${title}
+<div class="time-remaining">
+${getTimeRemaining(a.dueDate)}
+</div>
+</div>
+
+<button class="view-btn"
+onclick="viewAssignment('${reference}')">
+View
+</button>
+`
+
+list.appendChild(li)
+
+})
+
+document.getElementById("count").innerText =
+assignmentsCache.length
+
+}
+
+/* ================= LOAD ================= */
+
+async function loadWaiting(){
+
+try{
+
+const res = await fetch(
+"/expert/assignments/api/waiting-assignments",
+{credentials:"include"}
+)
+
+if(!res.ok){
+throw new Error("Failed to load assignments")
+}
+
+const data = await res.json()
+
+assignmentsCache = data
+
+renderWaiting()
+
+}catch(err){
+
+console.error(err)
+
+assignmentsCache = []
+renderWaiting()
+
+}
+
+}
+
+/* ================= NAV ================= */
+
+function viewAssignment(reference){
+window.location.href =
+"/expert/assignments/waiting-view?ref=" + reference
+}
+
+/* ================= INTERVALS ================= */
+
+setInterval(renderWaiting,1000)
+setInterval(loadWaiting,10000)
+
+/* ================= INIT ================= */
+
+loadWaiting()
+
+</script>
+
+</body>
+
+</html>

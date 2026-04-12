@@ -1,0 +1,351 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+<title>Expert Signup | Electro-Aid Technologies</title>
+
+<style>
+*{box-sizing:border-box;margin:0;padding:0;}
+
+body{
+font-family:Arial, Helvetica, sans-serif;
+background:#f0f2f5;
+}
+
+header{
+background:#8B4513;
+color:white;
+text-align:center;
+padding:18px;
+font-size:22px;
+font-weight:bold;
+}
+
+main{
+display:flex;
+justify-content:center;
+align-items:center;
+padding:40px 15px;
+}
+
+.container{
+background:white;
+width:100%;
+max-width:420px;
+padding:30px;
+border-radius:12px;
+box-shadow:0 8px 25px rgba(0,0,0,0.15);
+}
+
+.container h2{
+text-align:center;
+margin-bottom:25px;
+color:#8B4513;
+}
+
+.profile-image-area{
+text-align:center;
+margin-bottom:20px;
+}
+
+.profile-image-preview{
+width:110px;
+height:110px;
+border-radius:50%;
+margin:auto;
+overflow:hidden;
+cursor:pointer;
+border:3px solid #ddd;
+}
+
+.profile-image-preview img{
+width:100%;
+height:100%;
+object-fit:cover;
+}
+
+label{
+font-weight:bold;
+display:block;
+margin-top:12px;
+margin-bottom:5px;
+}
+
+input{
+width:100%;
+padding:12px;
+border:1px solid #ddd;
+border-radius:8px;
+font-size:15px;
+}
+
+.locked{
+background:#eee;
+cursor:not-allowed;
+}
+
+.password-field{
+position:relative;
+}
+
+.password-field button{
+position:absolute;
+right:10px;
+top:50%;
+transform:translateY(-50%);
+border:none;
+background:none;
+cursor:pointer;
+font-size:14px;
+color:#555;
+}
+
+button.submit-btn{
+margin-top:20px;
+width:100%;
+padding:13px;
+border:none;
+border-radius:8px;
+background:#8B4513;
+color:white;
+font-size:16px;
+cursor:pointer;
+font-weight:bold;
+}
+
+button.submit-btn:hover{
+background:#6f3610;
+}
+
+.message{
+text-align:center;
+margin-top:15px;
+font-weight:bold;
+}
+
+.footer{
+text-align:center;
+padding:15px;
+color:#777;
+font-size:14px;
+}
+
+.hidden-input{
+display:none;
+}
+</style>
+</head>
+
+<body>
+
+<header>
+Expert Registration
+</header>
+
+<main>
+
+<div class="container">
+
+<h2>Create Expert Account</h2>
+
+<form id="EXPERT_SIGNUP_FORM" enctype="multipart/form-data">
+
+<div class="profile-image-area">
+<div class="profile-image-preview" id="IMAGE_PREVIEW">
+<img src="/images/avatar.png" id="AVATAR_IMAGE">
+</div>
+<input type="file" id="EXPERT_PROFILE_IMAGE" class="hidden-input" accept="image/*">
+</div>
+
+<label>Full Name</label>
+<input type="text" id="EXPERT_NAME" required>
+
+<label>Email Address</label>
+<input type="email" id="EXPERT_EMAIL" class="locked" readonly required>
+
+<label>Phone Number</label>
+<input type="text" id="EXPERT_PHONE" required>
+
+<label>Registration Number</label>
+<input type="text" id="REG_NO" class="locked" readonly>
+
+<label>Password</label>
+<div class="password-field">
+<input type="password" id="EXPERT_PASSWORD" required>
+<button type="button" id="EXPERT_PASSWORD_TOGGLE">Show</button>
+</div>
+
+<label>Confirm Password</label>
+<div class="password-field">
+<input type="password" id="EXPERT_CONFIRM_PASSWORD" required>
+<button type="button" id="EXPERT_CONFIRM_PASSWORD_TOGGLE">Show</button>
+</div>
+
+<button type="submit" class="submit-btn" id="EXPERT_SIGNUP_BTN">
+Register
+</button>
+
+</form>
+
+<div id="EXPERT_SIGNUP_MESSAGE" class="message"></div>
+
+</div>
+
+</main>
+
+<div class="footer">
+© 2026 Electro-Aid Technologies
+</div>
+
+<script>
+
+/* ================== CONSTANTS ================== */
+
+const form = document.getElementById("EXPERT_SIGNUP_FORM")
+const nameInput = document.getElementById("EXPERT_NAME")
+const emailInput = document.getElementById("EXPERT_EMAIL")
+const phoneInput = document.getElementById("EXPERT_PHONE")
+const regInput = document.getElementById("REG_NO")
+const passInput = document.getElementById("EXPERT_PASSWORD")
+const confirmInput = document.getElementById("EXPERT_CONFIRM_PASSWORD")
+const fileInput = document.getElementById("EXPERT_PROFILE_IMAGE")
+const btn = document.getElementById("EXPERT_SIGNUP_BTN")
+const msg = document.getElementById("EXPERT_SIGNUP_MESSAGE")
+
+const preview = document.getElementById("IMAGE_PREVIEW")
+const avatar = document.getElementById("AVATAR_IMAGE")
+
+const toggle1 = document.getElementById("EXPERT_PASSWORD_TOGGLE")
+const toggle2 = document.getElementById("EXPERT_CONFIRM_PASSWORD_TOGGLE")
+
+const API = "/expert/signup"
+
+/* ================== GET REG ================== */
+
+function getReg(){
+    return new URLSearchParams(window.location.search).get("reg")
+}
+
+/* ================== VALIDATE LINK ================== */
+
+async function validateLink(){
+    const reg = getReg()
+
+    if(!reg){
+        fail("Invalid signup link")
+        return
+    }
+
+    try{
+        const res = await fetch(`/expert/validate?reg=${reg}`)
+        const data = await res.json()
+
+        if(!data.valid){
+            fail(data.message)
+            return
+        }
+
+        regInput.value = data.reg
+        emailInput.value = data.email
+
+    }catch(err){
+        console.error(err)
+        fail("Validation failed")
+    }
+}
+
+/* ================== FAIL STATE ================== */
+
+function fail(text){
+    msg.style.color="red"
+    msg.innerText=text
+    btn.disabled=true
+}
+
+/* ================== IMAGE ================== */
+
+preview.onclick = ()=>fileInput.click()
+
+fileInput.onchange = function(){
+const file=this.files[0]
+if(file){
+const reader=new FileReader()
+reader.onload=e=>avatar.src=e.target.result
+reader.readAsDataURL(file)
+}
+}
+
+/* ================== PASSWORD TOGGLE ================== */
+
+toggle1.onclick=()=>{
+passInput.type = passInput.type==="password"?"text":"password"
+toggle1.innerText = passInput.type==="password"?"Show":"Hide"
+}
+
+toggle2.onclick=()=>{
+confirmInput.type = confirmInput.type==="password"?"text":"password"
+toggle2.innerText = confirmInput.type==="password"?"Show":"Hide"
+}
+
+/* ================== SUBMIT ================== */
+
+form.addEventListener("submit", async e=>{
+e.preventDefault()
+
+msg.innerText=""
+
+if(passInput.value !== confirmInput.value){
+fail("Passwords do not match")
+return
+}
+
+btn.disabled=true
+
+const fd = new FormData()
+fd.append("EXPERT_NAME", nameInput.value.trim())
+fd.append("EXPERT_EMAIL", emailInput.value.trim())
+fd.append("EXPERT_PHONE", phoneInput.value.trim())
+fd.append("EXPERT_PASSWORD", passInput.value)
+
+if(fileInput.files.length>0){
+fd.append("EXPERT_PROFILE_IMAGE", fileInput.files[0])
+}
+
+try{
+const res = await fetch(`${API}?reg=${regInput.value}`,{
+method:"POST",
+body:fd
+})
+
+const data = await res.json()
+
+if(!res.ok){
+fail(data.message || "Signup failed")
+btn.disabled=false
+return
+}
+
+msg.style.color="green"
+msg.innerText="Signup successful. Redirecting..."
+
+setTimeout(()=>{
+window.location.href="/expert/login"
+},1500)
+
+}catch(err){
+console.error(err)
+fail("Server error")
+btn.disabled=false
+}
+})
+
+/* ================== INIT ================== */
+
+validateLink()
+
+</script>
+
+</body>
+</html>

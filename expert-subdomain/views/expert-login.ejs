@@ -1,0 +1,289 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+<title>Expert Login | Electro-Aid Technologies</title>
+
+<style>
+
+*{box-sizing:border-box;margin:0;padding:0;}
+
+body{
+font-family:Arial, Helvetica, sans-serif;
+background:#f0f2f5;
+}
+
+header{
+background:#8B4513;
+color:white;
+text-align:center;
+padding:18px;
+font-size:22px;
+font-weight:bold;
+}
+
+main{
+display:flex;
+justify-content:center;
+align-items:center;
+padding:40px 15px;
+}
+
+.container{
+background:white;
+width:100%;
+max-width:420px;
+padding:30px;
+border-radius:12px;
+box-shadow:0 8px 25px rgba(0,0,0,0.15);
+}
+
+.container h2{
+text-align:center;
+margin-bottom:25px;
+color:#8B4513;
+}
+
+label{
+font-weight:bold;
+display:block;
+margin-top:12px;
+margin-bottom:5px;
+}
+
+input{
+width:100%;
+padding:12px;
+border:1px solid #ddd;
+border-radius:8px;
+font-size:15px;
+}
+
+.password-field{
+position:relative;
+}
+
+.password-field button{
+position:absolute;
+right:10px;
+top:50%;
+transform:translateY(-50%);
+border:none;
+background:none;
+cursor:pointer;
+font-size:14px;
+color:#555;
+}
+
+button.submit-btn{
+margin-top:20px;
+width:100%;
+padding:13px;
+border:none;
+border-radius:8px;
+background:#8B4513;
+color:white;
+font-size:16px;
+cursor:pointer;
+font-weight:bold;
+}
+
+button.submit-btn:hover{
+background:#6f3610;
+}
+
+.links{
+margin-top:15px;
+text-align:center;
+}
+
+.links a{
+color:#8B4513;
+text-decoration:none;
+font-weight:bold;
+}
+
+.links a:hover{
+text-decoration:underline;
+}
+
+.message{
+text-align:center;
+margin-top:15px;
+font-weight:bold;
+}
+
+.footer{
+text-align:center;
+padding:15px;
+color:#777;
+font-size:14px;
+}
+
+</style>
+
+</head>
+
+<body>
+
+<header>
+Expert Login
+</header>
+
+<main>
+
+<div class="container">
+
+<h2>Login to Your Expert Account</h2>
+
+<form id="EXPERT_LOGIN_FORM">
+
+<label>Registration Number</label>
+<input
+type="text"
+id="REG_NO"
+placeholder="EXP_1234_AB"
+maxlength="12"
+required>
+
+<label>Password</label>
+
+<div class="password-field">
+
+<input type="password" id="EXPERT_PASSWORD" required>
+
+<button type="button" id="EXPERT_PASSWORD_TOGGLE">
+Show
+</button>
+
+</div>
+
+<button
+type="submit"
+class="submit-btn"
+id="EXPERT_LOGIN_BTN">
+Login
+</button>
+
+</form>
+
+<div class="links">
+
+<p>
+<a href="/expert/forgot-password">
+Forgot Password?
+</a>
+</p>
+
+</div>
+
+<div id="EXPERT_LOGIN_MESSAGE" class="message"></div>
+
+</div>
+
+</main>
+
+<div class="footer">
+© 2026 Electro-Aid Technologies
+</div>
+
+<script>
+
+/* ================= CONSTANTS ================= */
+
+const EXPERT_LOGIN_FORM = document.getElementById("EXPERT_LOGIN_FORM")
+const REG_NO = document.getElementById("REG_NO")
+const EXPERT_PASSWORD = document.getElementById("EXPERT_PASSWORD")
+const EXPERT_LOGIN_BTN = document.getElementById("EXPERT_LOGIN_BTN")
+const EXPERT_LOGIN_MESSAGE = document.getElementById("EXPERT_LOGIN_MESSAGE")
+const EXPERT_PASSWORD_TOGGLE = document.getElementById("EXPERT_PASSWORD_TOGGLE")
+
+/* ✅ CORRECT API */
+const EXPERT_LOGIN_API = "/expert/login"
+
+/* ================= PASSWORD TOGGLE ================= */
+
+EXPERT_PASSWORD_TOGGLE.addEventListener("click", function(){
+
+if(EXPERT_PASSWORD.type==="password"){
+EXPERT_PASSWORD.type="text"
+this.innerText="Hide"
+}else{
+EXPERT_PASSWORD.type="password"
+this.innerText="Show"
+}
+
+})
+
+/* ================= REG_NO VALIDATION ================= */
+
+function validateREGNO(reg){
+return /^EXP_\d{4}_[A-Z]{2}$/.test(reg)
+}
+
+/* ================= LOGIN ================= */
+
+EXPERT_LOGIN_FORM.addEventListener("submit", async function(e){
+
+e.preventDefault()
+
+EXPERT_LOGIN_MESSAGE.innerText=""
+
+const REG = REG_NO.value.trim().toUpperCase()
+const PASSWORD = EXPERT_PASSWORD.value
+
+if(!validateREGNO(REG)){
+EXPERT_LOGIN_MESSAGE.style.color="red"
+EXPERT_LOGIN_MESSAGE.innerText="Invalid registration number format"
+return
+}
+
+EXPERT_LOGIN_BTN.disabled=true
+
+try{
+
+const response = await fetch(EXPERT_LOGIN_API,{
+method:"POST",
+headers:{
+"Content-Type":"application/json"
+},
+body:JSON.stringify({
+REG_NO:REG,
+EXPERT_PASSWORD:PASSWORD
+})
+})
+
+const data = await response.json()
+
+if(!response.ok){
+EXPERT_LOGIN_MESSAGE.style.color="red"
+EXPERT_LOGIN_MESSAGE.innerText=data.message || "Login failed"
+EXPERT_LOGIN_BTN.disabled=false
+return
+}
+
+EXPERT_LOGIN_MESSAGE.style.color="green"
+EXPERT_LOGIN_MESSAGE.innerText="Login successful"
+
+/* ✅ CORRECT REDIRECT */
+setTimeout(()=>{
+window.location.href="/expert"
+},1000)
+
+}catch(err){
+
+EXPERT_LOGIN_MESSAGE.style.color="red"
+EXPERT_LOGIN_MESSAGE.innerText="Server error"
+EXPERT_LOGIN_BTN.disabled=false
+
+}
+
+})
+
+</script>
+
+</body>
+</html>

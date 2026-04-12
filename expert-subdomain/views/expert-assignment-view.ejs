@@ -1,0 +1,382 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+<title>Assignment Details | Electro-Aid Technologies</title>
+
+<style>
+*{box-sizing:border-box;margin:0;padding:0;}
+
+body{
+font-family:Arial,sans-serif;
+background:#8B4513;
+color:#333;
+padding-bottom:70px;
+}
+
+header{
+position:sticky;
+top:0;
+background:#A0522D;
+text-align:center;
+padding:10px;
+border-bottom-left-radius:25px;
+border-bottom-right-radius:25px;
+box-shadow:0 4px 10px rgba(0,0,0,0.3);
+}
+
+header h1{font-size:1.8rem;margin-bottom:4px;}
+header p{font-style:italic;color:#fff;font-size:0.9rem;}
+
+.top-menu{
+position:sticky;
+top:95px;
+background:#D2691E;
+display:flex;
+justify-content:space-around;
+padding:8px 0;
+box-shadow:0 4px 10px rgba(0,0,0,0.3);
+}
+
+.top-menu a{
+color:white;
+font-size:0.85rem;
+display:flex;
+flex-direction:column;
+align-items:center;
+text-decoration:none;
+}
+
+main{
+max-width:750px;
+margin:30px auto;
+padding:0 15px;
+}
+
+section{
+background:#fff;
+padding:25px;
+border-radius:18px;
+box-shadow:0 4px 12px rgba(0,0,0,0.15);
+}
+
+h2{
+margin-bottom:15px;
+font-size:1.6rem;
+color:#8B4513;
+}
+
+.info{margin-bottom:12px;font-size:0.95rem;}
+.info strong{color:#A0522D;}
+
+.files a{
+display:block;
+background:#f5f5f5;
+padding:8px;
+border-radius:6px;
+margin-bottom:6px;
+text-decoration:none;
+color:#333;
+}
+
+.files a:hover{background:#e6e6e6;}
+
+.countdown{font-weight:bold;}
+.timer-warning{color:red;}
+
+.accept-btn{
+margin-top:15px;
+padding:12px;
+border:none;
+border-radius:8px;
+background:#D2691E;
+color:white;
+font-weight:bold;
+cursor:pointer;
+width:100%;
+}
+
+.accept-btn:disabled{
+background:#999;
+cursor:not-allowed;
+}
+
+.accept-btn:hover{
+background:#A0522D;
+}
+
+.status-note{
+margin-top:10px;
+font-size:0.85rem;
+color:#A0522D;
+font-style:italic;
+}
+
+footer{
+position:fixed;
+bottom:0;
+width:100%;
+text-align:center;
+padding:12px;
+background:#A0522D;
+color:#fff;
+border-top-left-radius:25px;
+border-top-right-radius:25px;
+font-size:0.85rem;
+}
+</style>
+
+</head>
+
+<body>
+
+<header>
+<h1>Electro-Aid Technologies</h1>
+<p>Assignment Viewer</p>
+</header>
+
+<!-- ✅ CORRECT NAVIGATION -->
+<div class="top-menu">
+<a href="/expert">🏠 Home</a>
+<a href="/expert/assignments">📁 Assignments</a>
+<a href="/expert/invoice">💰 Invoice</a>
+<a href="/expert/logout">🔐 Logout</a>
+</div>
+
+<main>
+
+<section>
+
+<div class="info"><strong>Subject:</strong> <span id="subject"></span></div>
+<div class="info"><strong>Title:</strong> <span id="title"></span></div>
+<div class="info"><strong>Due Date & Time:</strong> <span id="dueDate"></span></div>
+
+<div class="info countdown">
+<strong>Time Remaining:</strong>
+<span id="countdown"></span>
+</div>
+
+<div class="info">
+<strong>Instructions:</strong>
+<p id="instructions"></p>
+</div>
+
+<div class="info">
+<strong>Files:</strong>
+<div class="files" id="files"></div>
+</div>
+
+<button class="accept-btn" id="acceptBtn">
+Accept Assignment
+</button>
+
+<div id="statusNote" class="status-note"></div>
+
+</section>
+
+</main>
+
+<footer>
+<p>&copy; 2026 Electro-Aid Technologies</p>
+</footer>
+
+<script>
+
+/* ===== HELPERS ===== */
+
+function escapeHTML(text){
+if(!text) return ""
+return text
+.replace(/&/g,"&amp;")
+.replace(/</g,"&lt;")
+.replace(/>/g,"&gt;")
+.replace(/"/g,"&quot;")
+.replace(/'/g,"&#039;")
+}
+
+function formatDueDate(dueDate){
+if(!dueDate) return "N/A"
+try{return new Date(dueDate).toLocaleString()}
+catch{return dueDate}
+}
+
+function safeURL(url){
+try{return new URL(url,window.location.origin).href}
+catch{return "#"}
+}
+
+/* ===== PARAM ===== */
+
+const params = new URLSearchParams(window.location.search)
+const reference = params.get("ref")
+
+if(!reference){
+alert("Invalid assignment reference.")
+window.location.href="/expert/assignments/pending"
+}
+
+/* ===== STATE ===== */
+
+let suspended = false
+let approvalLocked = false
+let countdownInterval = null
+
+/* ===== LOAD ===== */
+
+async function loadAssignment(){
+
+try{
+
+const res = await fetch(
+`/expert/assignments/pending/api/assignment/${encodeURIComponent(reference)}`,
+{credentials:"include"}
+)
+
+if(!res.ok) throw new Error()
+
+const assignment = await res.json()
+
+/* ✅ ONLY TRUE DB STATUS */
+if(assignment.status !== "pending"){
+alert("Assignment no longer available.")
+window.location.href="/expert/assignments/pending"
+return
+}
+
+/* DISPLAY */
+document.getElementById("subject").innerText = assignment.subject || "Not specified"
+document.getElementById("title").innerText = assignment.title || "Untitled"
+document.getElementById("dueDate").innerText = formatDueDate(assignment.dueDate)
+document.getElementById("instructions").innerText =
+assignment.instructions || "No instructions provided."
+
+/* FILES */
+const filesDiv = document.getElementById("files")
+filesDiv.innerHTML = ""
+
+if(Array.isArray(assignment.files) && assignment.files.length){
+assignment.files.forEach(file=>{
+const link = document.createElement("a")
+link.href = safeURL(file.url)
+link.target = "_blank"
+link.innerText = `📄 ${escapeHTML(file.name)}`
+filesDiv.appendChild(link)
+})
+}else{
+filesDiv.innerText = "No files uploaded."
+}
+
+/* TIMER */
+startCountdown(assignment.dueDate)
+
+/* ===== LOCK CHECK ===== */
+approvalLocked = !!assignment.approvalLocked
+
+const btn = document.getElementById("acceptBtn")
+const note = document.getElementById("statusNote")
+
+if(approvalLocked){
+btn.disabled = true
+note.innerText = "This assignment is awaiting admin approval."
+}
+
+/* ===== EXPERT STATUS ===== */
+const expertRes = await fetch("/api/expert/me",{credentials:"include"})
+const expert = await expertRes.json()
+
+suspended = expert.expertStatus === "suspended"
+
+if(!approvalLocked && suspended){
+note.innerText = "You are suspended. Accepting will require admin approval."
+}
+
+}catch(e){
+alert("Failed to load assignment.")
+console.error(e)
+}
+
+}
+
+/* ===== TIMER ===== */
+
+function startCountdown(dueDate){
+
+const el = document.getElementById("countdown")
+
+function update(){
+
+const now = Date.now()
+const diff = new Date(dueDate).getTime() - now
+
+if(diff <= 0){
+el.innerText = "Expired"
+el.classList.add("timer-warning")
+clearInterval(countdownInterval)
+return
+}
+
+const d = Math.floor(diff/86400000)
+const h = Math.floor((diff%86400000)/3600000)
+const m = Math.floor((diff%3600000)/60000)
+const s = Math.floor((diff%60000)/1000)
+
+el.innerText = `${d}d ${h}h ${m}m ${s}s`
+
+if(diff < 21600000) el.classList.add("timer-warning")
+
+}
+
+update()
+countdownInterval = setInterval(update,1000)
+
+}
+
+/* ===== ACCEPT ===== */
+
+document.getElementById("acceptBtn").onclick = async ()=>{
+
+if(approvalLocked) return
+
+if(!confirm("Accept this assignment?")) return
+
+try{
+
+const res = await fetch(
+`/expert/assignments/pending/api/assignment/${encodeURIComponent(reference)}/accept`,
+{
+method:"POST",
+credentials:"include"
+}
+)
+
+if(res.ok){
+
+alert(suspended
+? "Approval request sent. Awaiting admin response."
+: "Assignment accepted successfully.")
+
+window.location.href = "/expert/assignments/pending"
+
+}else{
+alert("Action failed.")
+}
+
+}catch(e){
+alert("Error.")
+console.error(e)
+}
+
+}
+
+/* ===== INIT ===== */
+
+loadAssignment()
+
+</script>
+
+</body>
+</html>

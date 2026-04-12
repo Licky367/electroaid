@@ -1,0 +1,325 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Expert Work | Electro-Aid Technologies</title>
+
+<style>
+*{box-sizing:border-box;margin:0;padding:0;}
+
+body{
+font-family:Arial,sans-serif;
+background:#8B4513;
+color:#333;
+padding-bottom:100px;
+}
+
+header{
+position:sticky;
+top:0;
+background:#A0522D;
+text-align:center;
+padding:10px;
+border-bottom-left-radius:25px;
+border-bottom-right-radius:25px;
+color:white;
+}
+
+.top-menu{
+position:sticky;
+top:95px;
+background:#D2691E;
+display:flex;
+justify-content:space-around;
+padding:8px 0;
+}
+
+.top-menu a{
+color:white;
+text-decoration:none;
+font-size:0.9rem;
+}
+
+main{
+max-width:800px;
+margin:30px auto;
+background:white;
+padding:20px;
+border-radius:18px;
+}
+
+h2{
+margin-bottom:20px;
+color:#8B4513;
+}
+
+ol{
+padding-left:20px;
+}
+
+li{
+margin-bottom:12px;
+padding:12px;
+border:1px solid #ddd;
+border-radius:10px;
+display:flex;
+justify-content:space-between;
+align-items:center;
+background:#fafafa;
+}
+
+.assignment-title{
+font-weight:bold;
+color:#A0522D;
+}
+
+.time-remaining{
+font-size:0.85rem;
+color:#555;
+margin-top:4px;
+}
+
+.deadline-warning{
+color:red;
+font-weight:bold;
+}
+
+.view-btn{
+padding:6px 12px;
+border:none;
+background:#D2691E;
+color:white;
+border-radius:6px;
+cursor:pointer;
+}
+
+.notification{
+background:#fff3cd;
+border-left:6px solid #ffeeba;
+padding:10px 15px;
+margin-bottom:10px;
+border-radius:8px;
+}
+
+.status-label{
+font-weight:bold;
+color:#555;
+margin-top:4px;
+}
+
+footer{
+position:fixed;
+bottom:0;
+width:100%;
+text-align:center;
+padding:12px;
+background:#A0522D;
+color:#fff;
+border-top-left-radius:25px;
+border-top-right-radius:25px;
+}
+</style>
+</head>
+
+<body>
+
+<header>
+<h1>Electro-Aid Technologies</h1>
+<p>Expert Work In Progress</p>
+</header>
+
+<div class="top-menu">
+<a href="/expert-dashboard">🏠 Home</a>
+<a href="/expert-pending">📁 Available</a>
+<a href="/waiting">⏳ Waiting</a>
+<a href="/expert/assignments/work">🧰 Work</a>
+</div>
+
+<main>
+
+<h2>Assignments In Progress / Revision Requested</h2>
+
+<div id="notificationsContainer"></div>
+
+<ol id="workList"></ol>
+
+</main>
+
+<footer>© 2026 Electro-Aid Technologies</footer>
+
+<script>
+
+/* ============================= */
+/* CONSTANTS (FIXED BASE PATH) */
+/* ============================= */
+
+const BASE = "/expert/assignments"
+
+const WORK_API = `${BASE}/api/in-progress`
+
+const STATUS_IN_PROGRESS = "In Progress"
+const STATUS_REVISION_REQUESTED = "Revision Requested"
+
+const TIMER_RENDER_INTERVAL = 1000
+const TIMER_RELOAD_INTERVAL = 10000
+
+const DEADLINE_WARNING_THRESHOLD = 6 * 60 * 60 * 1000
+
+/* ============================= */
+/* CACHE */
+/* ============================= */
+
+let assignmentsCache = []
+let notificationsCache = []
+
+/* ============================= */
+/* COUNTDOWN */
+/* ============================= */
+
+function getTimeRemaining(date){
+
+const now = new Date().getTime()
+const due = new Date(date).getTime()
+
+const diff = due - now
+
+if(diff <= 0){
+return { diff:0, days:0, hours:0, minutes:0, seconds:0 }
+}
+
+const days = Math.floor(diff/(1000*60*60*24))
+const hours = Math.floor((diff%(1000*60*60*24))/(1000*60*60))
+const minutes = Math.floor((diff%(1000*60*60))/(1000*60))
+const seconds = Math.floor((diff%(1000*60))/1000)
+
+return { days, hours, minutes, seconds, diff }
+
+}
+
+/* ============================= */
+/* RENDER */
+/* ============================= */
+
+function renderWork(){
+
+const list = document.getElementById("workList")
+list.innerHTML = ""
+
+assignmentsCache.forEach(a=>{
+
+const time = getTimeRemaining(a.dueDate)
+
+let remainingText = "Deadline passed"
+let warningClass = ""
+
+if(time.diff > 0){
+
+remainingText =
+`${time.days}d ${time.hours}h ${time.minutes}m ${time.seconds}s remaining`
+
+if(time.diff < DEADLINE_WARNING_THRESHOLD){
+warningClass = "deadline-warning"
+}
+
+}
+
+const statusLabel =
+a.status === STATUS_REVISION_REQUESTED
+? STATUS_REVISION_REQUESTED
+: STATUS_IN_PROGRESS
+
+const li = document.createElement("li")
+
+li.innerHTML = `
+
+<div>
+<div class="assignment-title">${a.title}</div>
+<div>Reference: ${a.reference}</div>
+<div>Payout: $${a.payout}</div>
+<div class="status-label">${statusLabel}</div>
+<div class="time-remaining ${warningClass}">
+${remainingText}
+</div>
+</div>
+
+<button class="view-btn"
+onclick="viewWork('${a.reference}')">
+View
+</button>
+
+`
+
+list.appendChild(li)
+
+if(!notificationsCache.includes(a.reference)){
+addNotification(a.reference, a.title)
+notificationsCache.push(a.reference)
+}
+
+})
+
+}
+
+/* ============================= */
+/* NOTIFICATION */
+/* ============================= */
+
+function addNotification(reference, title){
+
+const container = document.getElementById("notificationsContainer")
+
+const notif = document.createElement("div")
+
+notif.className = "notification"
+
+notif.innerHTML = `
+Assignment <strong>${reference}</strong> (${title}) has been initiated by the client.
+<button onclick="viewWork('${reference}')">View</button>
+`
+
+container.prepend(notif)
+
+}
+
+/* ============================= */
+/* NAVIGATION (FIXED) */
+/* ============================= */
+
+function viewWork(reference){
+window.location.href = `${BASE}/view?ref=${reference}`
+}
+
+/* ============================= */
+/* LOAD */
+/* ============================= */
+
+async function loadWork(){
+
+try{
+
+const res = await fetch(WORK_API, { credentials:"include" })
+const data = await res.json()
+
+assignmentsCache = data
+renderWork()
+
+}catch(err){
+console.error(err)
+}
+
+}
+
+/* ============================= */
+/* INTERVALS */
+/* ============================= */
+
+setInterval(renderWork, TIMER_RENDER_INTERVAL)
+setInterval(loadWork, TIMER_RELOAD_INTERVAL)
+
+loadWork()
+
+</script>
+
+</body>
+</html>

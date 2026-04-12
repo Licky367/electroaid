@@ -1,0 +1,283 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+<title>Edit Profile | Electro-Aid Technologies</title>
+
+<style>
+
+*{ box-sizing:border-box; margin:0; padding:0; }
+
+body{
+font-family:Arial,sans-serif;
+background:#8B4513;
+color:#333;
+padding-bottom:80px;
+}
+
+header{
+background:#A0522D;
+color:white;
+text-align:center;
+padding:14px;
+border-bottom-left-radius:25px;
+border-bottom-right-radius:25px;
+box-shadow:0 4px 10px rgba(0,0,0,0.3);
+}
+
+header h1{ font-size:1.7rem; }
+header p{ font-size:0.9rem; font-style:italic; }
+
+main{
+max-width:650px;
+margin:30px auto;
+padding:0 15px;
+}
+
+section{
+background:white;
+padding:22px;
+border-radius:18px;
+box-shadow:0 4px 12px rgba(0,0,0,0.2);
+}
+
+h2{
+margin-bottom:15px;
+color:#8B4513;
+}
+
+.profile-preview{
+text-align:center;
+margin-bottom:15px;
+}
+
+.profile-preview img{
+width:110px;
+height:110px;
+border-radius:50%;
+object-fit:cover;
+border:4px solid #D2691E;
+}
+
+.form-group{
+margin-bottom:14px;
+}
+
+label{
+display:block;
+margin-bottom:4px;
+font-weight:bold;
+font-size:0.9rem;
+}
+
+input{
+width:100%;
+padding:10px;
+border-radius:6px;
+border:1px solid #ccc;
+}
+
+input[readonly]{ background:#eee; }
+
+button{
+width:100%;
+padding:11px;
+border:none;
+border-radius:8px;
+background:#D2691E;
+color:white;
+font-size:0.95rem;
+cursor:pointer;
+font-weight:bold;
+margin-top:8px;
+}
+
+button:hover{ background:#A0522D; }
+
+.message{
+margin-top:10px;
+font-weight:bold;
+text-align:center;
+}
+
+footer{
+position:fixed;
+bottom:0;
+width:100%;
+text-align:center;
+padding:12px;
+background:#A0522D;
+color:#fff;
+border-top-left-radius:25px;
+border-top-right-radius:25px;
+font-size:0.85rem;
+}
+
+</style>
+</head>
+
+<body>
+
+<header>
+<h1>Electro-Aid Technologies</h1>
+<p>Edit Expert Profile</p>
+</header>
+
+<main>
+
+<section>
+
+<h2>Update Profile</h2>
+
+<div class="profile-preview">
+<img id="PROFILE_IMAGE_PREVIEW"
+     src="<%= EXPERT_PROFILE_IMAGE || '/images/avatar.png' %>">
+</div>
+
+<form id="EXPERT_EDIT_FORM">
+
+<div class="form-group">
+<label>Registration Number</label>
+<input type="text" value="<%= REG_NO %>" readonly>
+</div>
+
+<div class="form-group">
+<label>Full Name</label>
+<input type="text" id="EXPERT_NAME" value="<%= EXPERT_NAME %>" required>
+</div>
+
+<div class="form-group">
+<label>Email</label>
+<input type="email" value="<%= EXPERT_EMAIL %>" readonly>
+</div>
+
+<div class="form-group">
+<label>Phone Number</label>
+<input type="text" id="EXPERT_PHONE" value="<%= EXPERT_PHONE %>" required>
+</div>
+
+<div class="form-group">
+<label>Profile Image</label>
+<input type="file" id="EXPERT_PROFILE_IMAGE">
+</div>
+
+<!-- PASSWORD -->
+<div class="form-group">
+<label>New Password</label>
+<input type="password" id="EXPERT_PASSWORD" placeholder="Optional">
+</div>
+
+<div class="form-group">
+<label>Confirm Password</label>
+<input type="password" id="CONFIRM_PASSWORD" placeholder="Confirm password">
+</div>
+
+<button type="submit">Save Changes</button>
+
+</form>
+
+<div id="UPDATE_MESSAGE" class="message"></div>
+
+</section>
+
+</main>
+
+<footer>
+© 2026 Electro-Aid Technologies
+</footer>
+
+<script>
+
+/* ================= CONSTANTS ================= */
+
+const PROFILE_IMAGE_PREVIEW = document.getElementById("PROFILE_IMAGE_PREVIEW")
+const EXPERT_EDIT_FORM = document.getElementById("EXPERT_EDIT_FORM")
+const UPDATE_MESSAGE = document.getElementById("UPDATE_MESSAGE")
+
+/* ✅ FIXED ROUTE */
+const EXPERT_UPDATE_PROFILE_API = "/expert/edit"
+
+/* ================= IMAGE PREVIEW ================= */
+
+document.getElementById("EXPERT_PROFILE_IMAGE")
+.addEventListener("change", function(){
+
+    const file = this.files[0]
+
+    if(file){
+        const reader = new FileReader()
+        reader.onload = e => PROFILE_IMAGE_PREVIEW.src = e.target.result
+        reader.readAsDataURL(file)
+    }
+
+})
+
+/* ================= UPDATE PROFILE ================= */
+
+EXPERT_EDIT_FORM.addEventListener("submit", async function(e){
+
+    e.preventDefault()
+
+    UPDATE_MESSAGE.innerText = ""
+
+    const formData = new FormData()
+
+    formData.append("EXPERT_NAME",
+        document.getElementById("EXPERT_NAME").value.trim()
+    )
+
+    formData.append("EXPERT_PHONE",
+        document.getElementById("EXPERT_PHONE").value.trim()
+    )
+
+    const image = document.getElementById("EXPERT_PROFILE_IMAGE").files[0]
+
+    if(image){
+        formData.append("EXPERT_PROFILE_IMAGE", image)
+    }
+
+    const password = document.getElementById("EXPERT_PASSWORD").value.trim()
+    const confirmPassword = document.getElementById("CONFIRM_PASSWORD").value.trim()
+
+    if(password){
+        if(password !== confirmPassword){
+            UPDATE_MESSAGE.style.color = "red"
+            UPDATE_MESSAGE.innerText = "Passwords do not match"
+            return
+        }
+        formData.append("EXPERT_PASSWORD", password)
+    }
+
+    try{
+
+        const res = await fetch(EXPERT_UPDATE_PROFILE_API,{
+            method:"POST",
+            body:formData
+        })
+
+        if(!res.ok) throw new Error()
+
+        UPDATE_MESSAGE.style.color = "green"
+        UPDATE_MESSAGE.innerText = "Profile updated successfully"
+
+        setTimeout(()=>{
+            window.location.href = "/expert/profile"
+        },1500)
+
+    }catch(err){
+
+        UPDATE_MESSAGE.style.color = "red"
+        UPDATE_MESSAGE.innerText = "Failed to update profile"
+        console.error(err)
+
+    }
+
+})
+
+</script>
+
+</body>
+</html>

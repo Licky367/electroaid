@@ -1,0 +1,129 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Expert Dashboard</title>
+
+    <%- include('partials/header') %>
+
+    <style>
+        /* ============================= */
+        /* MAIN CONTAINER */
+        /* ============================= */
+        .main-container{
+            margin-top:120px; /* space for fixed header + top menu */
+            padding:20px;
+            max-width:900px;
+            margin-left:auto;
+            margin-right:auto;
+        }
+
+        /* ============================= */
+        /* CARD STYLE (THEME PRESERVED) */
+        /* ============================= */
+        .card{
+            background:#ffffff;
+            border-radius:8px;
+            padding:22px;
+            margin-bottom:20px;
+            box-shadow:0 2px 6px rgba(0,0,0,0.1);
+            border-left:5px solid #8B4513;
+        }
+
+        /* ============================= */
+        /* HEADINGS */
+        /* ============================= */
+        .card h2{
+            margin-bottom:12px;
+            color:#8B4513;
+            font-size:18px;
+        }
+
+        /* ============================= */
+        /* TEXT */
+        /* ============================= */
+        .card p{
+            color:#333;
+            line-height:1.6;
+            font-size:14px;
+        }
+
+        /* ============================= */
+        /* LISTS */
+        /* ============================= */
+        .card ul{
+            padding-left:20px;
+            color:#333;
+        }
+
+        .card ul li{
+            margin-bottom:8px;
+            font-size:14px;
+        }
+    </style>
+</head>
+
+<body>
+
+    <!-- TOP MENU -->
+    <%- include('partials/top-menu') %>
+
+    <div class="main-container">
+
+        <!-- ============================= -->
+        <!-- WELCOME SECTION -->
+        <!-- ============================= -->
+        <div class="card">
+            <h2>Welcome</h2>
+
+            <p>
+                Welcome back, <strong><%= expert.name %></strong>.
+            </p>
+
+            <p>
+                Registration Number: <strong><%= expert.reg_no %></strong>
+            </p>
+
+            <p>
+                You are now logged in to your expert dashboard. Here you will manage and complete assignments assigned to you.
+            </p>
+        </div>
+
+        <!-- ============================= -->
+        <!-- RESPONSIBILITIES SECTION -->
+        <!-- ============================= -->
+        <div class="card">
+            <h2>Your Responsibilities</h2>
+
+            <ul>
+                <li>Receive and review assignments assigned by clients.</li>
+                <li>Complete tasks with accuracy and professionalism.</li>
+                <li>Submit assignments before the deadline.</li>
+                <li>Ensure high-quality and plagiarism-free work.</li>
+                <li>Track payments and invoices through your dashboard.</li>
+            </ul>
+        </div>
+
+        <!-- ============================= -->
+        <!-- MOTIVATION SECTION -->
+        <!-- ============================= -->
+        <div class="card">
+            <h2>All the Best</h2>
+
+            <p>
+                We believe in your skills and professionalism to deliver outstanding results.
+            </p>
+
+            <p>
+                Stay focused, manage your time well, and maintain consistency in your work.
+            </p>
+
+            <p>
+                Wishing you great success and productivity in all your assignments.
+            </p>
+        </div>
+
+    </div>
+
+</body>
+</html>
