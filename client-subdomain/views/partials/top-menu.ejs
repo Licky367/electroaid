@@ -1,0 +1,164 @@
+<!-- ================= TOP MENU COMPONENT ================= -->
+
+<style>
+/* TOP MENU WRAPPER */
+.top-menu{
+position:sticky;
+top:80px;
+background:#D2691E;
+display:flex;
+justify-content:space-around;
+align-items:center;
+padding:6px 0;
+box-shadow:0 4px 10px rgba(0,0,0,0.3);
+z-index:999;
+}
+
+/* LINKS */
+.top-menu a{
+color:white;
+font-size:0.8rem;
+display:flex;
+flex-direction:column;
+align-items:center;
+gap:2px;
+text-decoration:none;
+}
+
+.top-menu a .icon{
+font-size:1.2rem;
+}
+
+/* ACTIVE STATE */
+.top-menu a.active,
+.profile-menu.active .profile-trigger{
+background:#FFD700;
+color:#8B4513;
+border-radius:12px;
+padding:4px 8px;
+}
+
+/* PROFILE MENU */
+.profile-menu{
+position:relative;
+display:flex;
+flex-direction:column;
+align-items:center;
+}
+
+/* CLICK AREA */
+.profile-trigger{
+display:flex;
+flex-direction:column;
+align-items:center;
+cursor:pointer;
+color:white;
+font-size:0.8rem;
+gap:2px;
+padding:4px 8px;
+border-radius:12px;
+}
+
+/* AVATAR */
+.avatar{
+width:28px;
+height:28px;
+border-radius:50%;
+object-fit:cover;
+border:2px solid #FFD700;
+}
+
+/* DROPDOWN */
+.dropdown{
+display:none;
+position:absolute;
+top:50px;
+right:0;
+background:white;
+border-radius:10px;
+box-shadow:0 4px 10px rgba(0,0,0,0.2);
+min-width:150px;
+overflow:hidden;
+z-index:2000;
+}
+
+/* DROPDOWN LINKS */
+.dropdown a{
+display:block;
+padding:10px;
+color:#333;
+font-size:0.9rem;
+text-align:left;
+}
+
+.dropdown a:hover{
+background:#f2f2f2;
+}
+</style>
+
+<div class="top-menu">
+
+<a href="/" class="<%= currentPage === 'home' ? 'active' : '' %>">
+<span class="icon">🏠</span>
+<span>Home</span>
+</a>
+
+<a href="/assignments" class="<%= currentPage === 'assignments' ? 'active' : '' %>">
+<span class="icon">📁</span>
+<span>Assignments</span>
+</a>
+
+<a href="/guidelines" class="<%= currentPage === 'guidelines' ? 'active' : '' %>">
+<span class="icon">📖</span>
+<span>Guidelines</span>
+</a>
+
+<!-- PROFILE -->
+<div class="profile-menu <%= currentPage === 'profile' ? 'active' : '' %>">
+
+    <div class="profile-trigger" onclick="toggleProfileDropdown()">
+
+        <% if (client && client.CLIENT_PROFILE_IMAGE) { %>
+            <img src="/uploads/<%= client.CLIENT_PROFILE_IMAGE %>" class="avatar">
+        <% } else { %>
+            <span class="icon">👤</span>
+        <% } %>
+
+        <span>
+        <%= client && client.CLIENT_NAME 
+            ? client.CLIENT_NAME.split(" ")[0] 
+            : "Profile" %>
+        </span>
+
+    </div>
+
+    <div class="dropdown" id="profileDropdown">
+
+        <% if (client) { %>
+            <a href="/profile">👤 Profile</a>
+            <a href="/auth/logout">🔐 Logout</a>
+        <% } else { %>
+            <a href="/auth/login">🔐 Login</a>
+        <% } %>
+
+    </div>
+
+</div>
+
+</div>
+
+<script>
+function toggleProfileDropdown() {
+    const dropdown = document.getElementById("profileDropdown");
+    dropdown.style.display =
+        dropdown.style.display === "block" ? "none" : "block";
+}
+
+/* CLOSE WHEN CLICK OUTSIDE */
+document.addEventListener("click", function(e) {
+    if (!e.target.closest(".profile-menu")) {
+        const dropdown = document.getElementById("profileDropdown");
+        if (dropdown) dropdown.style.display = "none";
+    }
+});
+</script>
