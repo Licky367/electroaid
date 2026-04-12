@@ -1,0 +1,117 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+<title>Declined Assignments | Electro-Aid Technologies</title>
+
+<style>
+*{box-sizing:border-box;margin:0;padding:0;}
+
+body{
+    font-family:Arial,sans-serif;
+    background-color:#8B4513;
+    color:#333;
+    padding-bottom:100px;
+}
+
+a{text-decoration:none;color:inherit;}
+
+main{
+    max-width:750px;
+    margin:30px auto;
+    padding:0 15px;
+}
+
+section{
+    background-color:#fff;
+    padding:25px;
+    border-radius:18px;
+    box-shadow:0 4px 12px rgba(0,0,0,0.15);
+}
+
+h2{
+    margin-bottom:15px;
+    font-size:1.6rem;
+    color:#8B4513;
+}
+
+.assignment-item{
+    background:#f7f7f7;
+    padding:15px;
+    border-radius:12px;
+    margin-bottom:15px;
+}
+
+.assignment-item p{
+    margin-bottom:6px;
+    font-size:0.95rem;
+}
+
+.assignment-item strong{
+    color:#A0522D;
+}
+
+.empty-state{
+    text-align:center;
+    font-size:1.1rem;
+    padding:20px;
+}
+</style>
+
+</head>
+
+<body>
+
+<!-- ✅ REUSABLE HEADER -->
+<%- include("partials/header") %>
+
+<!-- ✅ REUSABLE TOP MENU -->
+<%- include("partials/top-menu", { currentPage: "assignments" }) %>
+
+<main>
+
+<section>
+
+<h2>
+Declined Assignments (<%= assignments.length %>)
+</h2>
+
+<% if(assignments.length === 0){ %>
+
+<div class="empty-state">
+You have no declined assignments.
+</div>
+
+<% } else { %>
+
+<% assignments.forEach(a => { %>
+
+<div class="assignment-item">
+
+<p><strong>Title:</strong> <%= a.title %></p>
+
+<p><strong>Reference Code:</strong> <%= a.reference %></p>
+
+<p><strong>Declination Reason:</strong> <%= a.declineReason %></p>
+
+<p><strong>Date Declined:</strong>
+<%= new Date(a.declinedAt).toLocaleString() %>
+</p>
+
+</div>
+
+<% }) %>
+
+<% } %>
+
+</section>
+
+</main>
+
+<!-- ✅ REUSABLE FOOTER -->
+<%- include("partials/footer") %>
+
+</body>
+</html>

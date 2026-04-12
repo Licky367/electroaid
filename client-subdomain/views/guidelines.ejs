@@ -1,0 +1,136 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Guidelines | Electro-Aid Technologies</title>
+
+<style>
+*{box-sizing:border-box;margin:0;padding:0;}
+
+body{
+font-family:Arial,sans-serif;
+line-height:1.6;
+background-color:#8B4513;
+color:#333;
+padding-bottom:70px;
+}
+
+a{text-decoration:none;color:inherit}
+
+/* MAIN */
+main{
+max-width:750px;
+margin:25px auto;
+padding:0 15px;
+}
+
+section{
+background-color:#fff;
+padding:18px;
+margin-bottom:18px;
+border-radius:18px;
+box-shadow:0 4px 12px rgba(0,0,0,0.15);
+}
+
+section h2{
+margin-bottom:10px;
+font-size:1.6rem;
+color:#8B4513;
+}
+
+section p{
+font-size:1rem;
+margin-bottom:10px;
+}
+
+section ul{
+list-style:disc inside;
+}
+
+section ul li{
+font-size:0.95rem;
+margin-bottom:6px;
+}
+</style>
+
+</head>
+
+<body>
+
+<!-- ✅ REUSABLE HEADER -->
+<%- include("partials/header") %>
+
+<!-- ✅ REUSABLE TOP MENU -->
+<%- include("partials/top-menu", { currentPage: "guidelines" }) %>
+
+<main>
+
+<section>
+<h2>1️⃣ ➤ Assignment Insertion</h2>
+
+<p>
+Clients insert their assignments through
+<a href="/assignments"><strong>the Assignments Page</strong></a>.
+</p>
+
+<p>
+All instructions, required files, formatting details, and deadlines must be clearly stated. Incomplete or unclear instructions may lead to delays.
+</p>
+</section>
+
+<section>
+<h2>2️⃣ ➤ Assignment Review Process</h2>
+
+<p>
+Once an assignment is submitted, it is reviewed and assigned to a qualified expert.
+</p>
+
+<p>
+The expert carefully studies the requirements before work officially begins.
+</p>
+</section>
+
+<section>
+<h2>3️⃣ ➤ Payment Policy</h2>
+
+<p>After assignment confirmation, the client selects their preferred payment option.</p>
+
+<p>Initial payment activates the work.</p>
+
+<p>Final payment is made after delivery.</p>
+
+<p>
+Assignments remain accessible unless restricted by outstanding balances according to company policy.
+</p>
+</section>
+
+<section>
+<h2>4️⃣ ➤ Workflow Process</h2>
+
+<p><strong>I. Insert Assignment</strong><br>
+Client submits assignment details via the portal.</p>
+
+<p><strong>II. Review & Expert Assignment</strong><br>
+Assignment is reviewed and assigned.</p>
+
+<p><strong>III. Payment Activation</strong><br>
+Initial payment activates the process.</p>
+
+<p><strong>IV. Work in Progress</strong><br>
+Expert works according to instructions and deadline.</p>
+
+<p><strong>V. Delivery & Revisions</strong><br>
+Completed work is submitted for review. Revisions are handled as required.</p>
+
+<p><strong>VI. Completion</strong><br>
+Client rates the expert and marks the assignment as completed.</p>
+</section>
+
+</main>
+
+<!-- ✅ REUSABLE FOOTER -->
+<%- include("partials/footer") %>
+
+</body>
+</html>

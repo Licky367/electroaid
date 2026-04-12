@@ -1,0 +1,339 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Work Chat | Electro-Aid Technologies</title>
+
+<style>
+*{box-sizing:border-box;margin:0;padding:0;}
+body{font-family:Arial,sans-serif;background:#8B4513;color:#333;padding-bottom:140px;}
+
+a{text-decoration:none;color:inherit;}
+
+main{
+max-width:750px;
+margin:25px auto;
+padding:0 15px;
+}
+
+section{
+background:white;
+padding:18px;
+margin-bottom:18px;
+border-radius:18px;
+box-shadow:0 4px 12px rgba(0,0,0,0.15);
+position:relative;
+}
+
+.lock-overlay{
+position:absolute;
+top:0;
+left:0;
+right:0;
+bottom:0;
+display:flex;
+align-items:center;
+justify-content:center;
+background:rgba(255,255,255,0.92);
+border-radius:18px;
+font-weight:bold;
+text-align:center;
+padding:20px;
+}
+
+button{
+padding:10px 15px;
+border:none;
+border-radius:8px;
+background:#A0522D;
+color:white;
+cursor:pointer;
+margin-top:10px;
+width:100%;
+}
+
+button.secondary{ background:#555; }
+
+textarea{
+width:100%;
+padding:8px;
+border-radius:8px;
+border:1px solid #ccc;
+margin-top:10px;
+}
+
+.comment{
+background:#eee;
+padding:8px;
+border-radius:8px;
+margin-bottom:6px;
+}
+
+.stars span{
+font-size:1.8rem;
+cursor:pointer;
+color:#ccc;
+}
+
+.stars .active{ color:gold; }
+</style>
+</head>
+
+<body>
+
+<!-- ✅ REUSABLE HEADER -->
+<%- include("partials/header") %>
+
+<!-- ✅ REUSABLE TOP MENU -->
+<%- include("partials/top-menu", { currentPage: "work" }) %>
+
+<main>
+
+<!-- DETAILS -->
+<section>
+<h2>Assignment Details</h2>
+
+<p><strong>Reference:</strong> <%= assignment.reference %></p>
+<p><strong>Subject:</strong> <%= assignment.subject || "N/A" %></p>
+<p><strong>Title:</strong> <%= assignment.title %></p>
+<p><strong>Status:</strong> <%= assignment.status %></p>
+
+<p><strong>Deadline:</strong>
+<span id="deadline"><%= assignment.deadline ? new Date(assignment.deadline).toLocaleString() : "N/A" %></span>
+</p>
+
+<p><strong>Time Remaining:</strong>
+<span id="timer">Calculating...</span>
+</p>
+</section>
+
+<!-- SUBMISSION -->
+<section>
+<h2>Submitted Work</h2>
+
+<div id="submissionContent">
+
+<% if (submissionFiles && submissionFiles.length) { %>
+
+<ul>
+<% submissionFiles.forEach(file => { %>
+<li><a href="<%= file.fileUrl %>" download>📄 <%= file.fileName || "Download file" %></a></li>
+<% }) %>
+</ul>
+
+<% if (submissionText) { %>
+<p><strong>Additional:</strong> <%= submissionText %></p>
+<% } %>
+
+<% } else { %>
+<p>No submission yet.</p>
+<% } %>
+
+</div>
+
+<div class="lock-overlay" id="submissionLock"></div>
+</section>
+
+<!-- ARREARS -->
+<% if (arrearsExist) { %>
+<section style="text-align:center">
+<button onclick="goPayArrears()">
+Clear Arrears ($<%= arrearsAmount.toFixed(2) %>)
+</button>
+</section>
+<% } %>
+
+<!-- COMMENTS -->
+<section>
+<h2>Private Comments</h2>
+
+<div id="commentsList">
+
+<% if (comments && comments.length) { %>
+
+<% comments.forEach(c => { %>
+<div class="comment">
+<strong><%= c.isClient ? "You" : "Expert" %>:</strong>
+<%= c.message %>
+</div>
+<% }) %>
+
+<% } else { %>
+<p>No comments yet.</p>
+<% } %>
+
+</div>
+
+<textarea id="commentInput" placeholder="Write a comment"></textarea>
+<button id="sendCommentBtn">Send</button>
+</section>
+
+<!-- APPROVAL -->
+<section>
+<h2>Rating & Approval</h2>
+
+<div class="lock-overlay" id="approvalLock"></div>
+
+<div>
+
+<div class="stars" id="stars">
+<span data="1">★</span>
+<span data="2">★</span>
+<span data="3">★</span>
+<span data="4">★</span>
+<span data="5">★</span>
+</div>
+
+<textarea id="feedback" placeholder="Leave feedback"></textarea>
+
+<label>
+<input type="checkbox" id="reviewCheck"> I reviewed
+</label>
+
+<label>
+<input type="checkbox" id="approveCheck"> I approve
+</label>
+
+<button id="completeBtn">Complete</button>
+
+<textarea id="revisionText" placeholder="Describe what needs revision"></textarea>
+<button class="secondary" id="revisionBtn">Request Revision</button>
+
+</div>
+</section>
+
+</main>
+
+<!-- ✅ REUSABLE FOOTER -->
+<%- include("partials/footer") %>
+
+<script>
+const reference = "<%= assignment.reference %>";
+const status = "<%= assignment.status %>";
+const expertSubmitted = <%= expertSubmitted %>;
+const arrearsExist = <%= arrearsExist %>;
+
+/* LOCK LOGIC */
+const subLock = document.getElementById("submissionLock");
+const apprLock = document.getElementById("approvalLock");
+
+if(!expertSubmitted){
+    subLock.innerText="Work in progress...";
+    subLock.style.display="flex";
+
+    apprLock.innerText="Rating unlocked after submission";
+    apprLock.style.display="flex";
+}
+else if(arrearsExist){
+    subLock.innerText="Clear arrears to view work";
+    subLock.style.display="flex";
+
+    apprLock.innerText="Clear arrears first";
+    apprLock.style.display="flex";
+}
+else{
+    subLock.style.display="none";
+    apprLock.style.display="none";
+}
+
+/* COMMENTS */
+document.getElementById("sendCommentBtn").onclick = async () => {
+    const msg = document.getElementById("commentInput").value.trim();
+    if(!msg) return;
+
+    const res = await fetch(`/assignments/work/api/comments`,{
+        method:"POST",
+        headers:{"Content-Type":"application/json"},
+        credentials:"include",
+        body:JSON.stringify({reference, message:msg})
+    });
+
+    if(!res.ok){
+        alert("Failed to send comment");
+        return;
+    }
+
+    location.reload();
+}
+
+/* RATING */
+let selectedRating = 0;
+const stars = document.querySelectorAll("#stars span");
+
+stars.forEach(star => {
+    star.onclick = () => {
+        selectedRating = parseInt(star.getAttribute("data"));
+        stars.forEach(s => s.classList.remove("active"));
+        for(let i=0;i<selectedRating;i++){
+            stars[i].classList.add("active");
+        }
+    }
+});
+
+/* COMPLETE */
+document.getElementById("completeBtn").onclick = async () => {
+
+    if(status !== "In Progress"){
+        alert("Not ready");
+        return;
+    }
+
+    if(!reviewCheck.checked || !approveCheck.checked){
+        alert("Confirm review & approval");
+        return;
+    }
+
+    const res = await fetch(`/assignments/work/api/complete-assignment`,{
+        method:"POST",
+        headers:{"Content-Type":"application/json"},
+        credentials:"include",
+        body:JSON.stringify({
+            reference,
+            rating: selectedRating,
+            feedback: feedback.value
+        })
+    });
+
+    if(!res.ok){
+        alert("Action failed");
+        return;
+    }
+
+    alert("Completed");
+    location.href="/assignments/work";
+}
+
+/* REVISION */
+document.getElementById("revisionBtn").onclick = async () => {
+    const text = document.getElementById("revisionText").value.trim();
+    if(!text){
+        alert("Enter revision details");
+        return;
+    }
+
+    const res = await fetch(`/assignments/work/api/request-revision`,{
+        method:"POST",
+        headers:{"Content-Type":"application/json"},
+        credentials:"include",
+        body:JSON.stringify({reference, request:text})
+    });
+
+    if(!res.ok){
+        alert("Failed to request revision");
+        return;
+    }
+
+    alert("Revision requested");
+    location.reload();
+}
+
+/* PAYMENT */
+function goPayArrears(){
+    window.location.href =
+    `/assignments/pay?reference=${reference}&type=arrears`;
+}
+</script>
+
+</body>
+</html>

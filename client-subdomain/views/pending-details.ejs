@@ -1,0 +1,177 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Pending Assignment Details | Electro-Aid Technologies</title>
+
+<style>
+*{box-sizing:border-box;margin:0;padding:0;}
+body{font-family:Arial,sans-serif;background-color:#8B4513;color:#333;padding-bottom:70px;}
+a{text-decoration:none;color:inherit;}
+main{max-width:750px;margin:30px auto;padding:0 15px;}
+section{background:#fff;padding:25px;border-radius:18px;box-shadow:0 4px 12px rgba(0,0,0,0.15);}
+h2{margin-bottom:15px;font-size:1.6rem;color:#8B4513;}
+.info{margin-bottom:12px;font-size:0.95rem;}
+.info strong{color:#A0522D;}
+input, textarea{width:100%;padding:10px;border-radius:8px;border:1px solid #ccc;margin-top:5px;}
+textarea{height:100px;resize:none;}
+.save-btn{margin-top:15px;width:100%;padding:12px;border:none;border-radius:8px;background:#8B4513;color:white;font-weight:bold;cursor:pointer;}
+.save-btn:hover{background:#6f3610;}
+.message{text-align:center;margin-top:10px;font-size:0.9rem;}
+.file-item{margin-top:5px;font-size:0.9rem;}
+.file-item a{color:#A0522D;text-decoration:underline;}
+</style>
+</head>
+
+<body>
+
+<!-- ✅ REUSABLE HEADER -->
+<%- include("partials/header") %>
+
+<!-- ✅ REUSABLE TOP MENU -->
+<%- include("partials/top-menu", { currentPage: "assignments" }) %>
+
+<main>
+<section>
+
+<h2 id="title">Loading...</h2>
+
+<div class="info">
+<strong>Reference Code:</strong>
+<span id="reference"></span>
+</div>
+
+<div class="info">
+<strong>Budget:</strong>
+<input type="number" id="budget">
+</div>
+
+<div class="info">
+<strong>Deadline:</strong>
+<input type="datetime-local" id="deadline">
+</div>
+
+<div class="info">
+<strong>Instructions:</strong>
+<textarea id="instructions"></textarea>
+</div>
+
+<div class="info">
+<strong>Files:</strong>
+<div id="filesContainer"></div>
+</div>
+
+<div class="info">
+<strong>Update File Name:</strong>
+<input type="text" id="fileName">
+</div>
+
+<div class="info">
+<strong>Update File URL:</strong>
+<input type="text" id="fileUrl">
+</div>
+
+<button class="save-btn" onclick="saveChanges()">Save Changes</button>
+<div id="message" class="message"></div>
+
+</section>
+</main>
+
+<!-- ✅ REUSABLE FOOTER -->
+<%- include("partials/footer") %>
+
+<script>
+
+/* ================= AUTH GUARD ================= */
+async function verifyLogin() {
+    try {
+        const res = await fetch("/auth/me", { credentials: "include" });
+        if (!res.ok) window.location.href = "/auth/login";
+    } catch { window.location.href = "/auth/login"; }
+}
+
+/* ================= GET REF ================= */
+const params = new URLSearchParams(window.location.search);
+const reference = params.get("ref");
+
+/* ================= LOAD ================= */
+async function loadAssignment() {
+    if (!reference) {
+        alert("Invalid reference");
+        return;
+    }
+
+    try {
+        const res = await fetch(
+            `/assignments/pending/api/details?ref=${encodeURIComponent(reference)}`,
+            { credentials: "include" }
+        );
+
+        if (res.status === 401) { window.location.href = "/auth/login"; return; }
+        if (!res.ok) throw new Error("Failed");
+
+        const a = await res.json();
+
+        document.getElementById("title").innerText = a.title || "";
+        document.getElementById("reference").innerText = a.reference || "";
+        document.getElementById("budget").value = a.budget || "";
+        document.getElementById("deadline").value = a.deadline ? new Date(a.deadline).toISOString().slice(0,16) : "";
+        document.getElementById("instructions").value = a.instructions || "";
+
+        const filesContainer = document.getElementById("filesContainer");
+        filesContainer.innerHTML = "";
+
+        if (Array.isArray(a.files) && a.files.length) {
+            a.files.forEach(f => {
+                filesContainer.innerHTML += `
+                    <div class="file-item">
+                        <a href="${f.fileUrl}" target="_blank">${f.fileName}</a>
+                    </div>`;
+            });
+        } else {
+            filesContainer.innerHTML = "No files uploaded.";
+        }
+
+    } catch (err) {
+        console.error(err);
+        alert("Failed to load assignment");
+    }
+}
+
+/* ================= SAVE ================= */
+async function saveChanges() {
+    const data = {
+        reference: reference,
+        budget: document.getElementById("budget").value,
+        deadline: document.getElementById("deadline").value,
+        instructions: document.getElementById("instructions").value,
+        fileName: document.getElementById("fileName").value,
+        fileUrl: document.getElementById("fileUrl").value
+    };
+
+    try {
+        const res = await fetch("/assignments/pending/api/update", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            credentials: "include",
+            body: JSON.stringify(data)
+        });
+
+        if (res.status === 401) { window.location.href = "/auth/login"; return; }
+        if (!res.ok) throw new Error();
+
+        document.getElementById("message").innerText = "Changes saved successfully.";
+    } catch (err) {
+        document.getElementById("message").innerText = "Failed to save changes.";
+    }
+}
+
+/* ================= INIT ================= */
+verifyLogin();
+loadAssignment();
+
+</script>
+</body>
+</html>

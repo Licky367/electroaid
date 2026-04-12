@@ -1,0 +1,106 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Pending Assignments | Electro-Aid Technologies</title>
+
+<style>
+*{box-sizing:border-box;margin:0;padding:0;}
+body{font-family:Arial,sans-serif;background-color:#8B4513;color:#333;padding-bottom:70px;}
+a{text-decoration:none;color:inherit;}
+main{max-width:750px;margin:30px auto;padding:0 15px;}
+section{background-color:#fff;padding:25px;border-radius:18px;box-shadow:0 4px 12px rgba(0,0,0,0.15);}
+h2{margin-bottom:15px;font-size:1.6rem;color:#8B4513;}
+.assignment-item{background:#f7f7f7;padding:15px;border-radius:12px;margin-bottom:15px;transition:0.2s;}
+.assignment-item:hover{background:#ececec;transform:translateY(-2px);}
+.assignment-item p{margin-bottom:6px;font-size:0.95rem;}
+.assignment-item strong{color:#A0522D;}
+.view-btn{margin-top:8px;padding:8px 14px;border:none;background:#8B4513;color:white;border-radius:6px;cursor:pointer;font-size:0.85rem;}
+.view-btn:hover{background:#6f3610;}
+.empty-state{text-align:center;font-size:1.1rem;padding:20px;}
+</style>
+</head>
+<body>
+
+<!-- ✅ REUSABLE HEADER -->
+<%- include("partials/header") %>
+
+<!-- ✅ REUSABLE TOP MENU -->
+<%- include("partials/top-menu", { currentPage: "assignments" }) %>
+
+<main>
+<section>
+<h2>Pending Assignments (<span id="count">0</span>)</h2>
+<div id="assignmentsContainer"></div>
+</section>
+</main>
+
+<!-- ✅ REUSABLE FOOTER -->
+<%- include("partials/footer") %>
+
+<script>
+async function verifyLogin(){
+try{
+const res = await fetch("/auth/me",{credentials:"include"});
+if(!res.ok){window.location.href="/auth/login";}
+}catch{window.location.href="/auth/login";}
+}
+
+function escapeHTML(text){
+if(!text) return "";
+return text.replace(/&/g,"&amp;")
+           .replace(/</g,"&lt;")
+           .replace(/>/g,"&gt;")
+           .replace(/"/g,"&quot;")
+           .replace(/'/g,"&#039;");
+}
+
+async function loadAssignments(){
+try{
+const res = await fetch("/assignments/pending/api/list",{credentials:"include"});
+if(res.status===401){window.location.href="/auth/login";return;}
+if(!res.ok){throw new Error("Failed to fetch assignments");}
+const assignments = await res.json();
+const container=document.getElementById("assignmentsContainer");
+const countSpan=document.getElementById("count");
+container.innerHTML="";
+if(!Array.isArray(assignments)||assignments.length===0){
+countSpan.innerText=0;
+container.innerHTML=`<div class="empty-state">You have no pending assignments.</div>`;
+return;
+}
+countSpan.innerText=assignments.length;
+let html="";
+assignments.forEach(a=>{
+const reference=escapeHTML(a.reference);
+const title=escapeHTML(a.title);
+html+=`
+<div class="assignment-item">
+<p><strong>Reference Code:</strong> ${reference}</p>
+<p><strong>Title:</strong> ${title}</p>
+<button class="view-btn" onclick="viewDetails('${reference}')">View More Details</button>
+</div>`;
+});
+container.innerHTML=html;
+}catch(err){
+console.error(err);
+document.getElementById("assignmentsContainer").innerHTML=`<div class="empty-state">Failed to load assignments.</div>`;
+}
+}
+
+function viewDetails(reference){
+window.location.href=`/assignments/pending/details?ref=${reference}`;
+}
+
+let refreshInterval=setInterval(loadAssignments,30000);
+document.addEventListener("visibilitychange",()=>{
+if(document.hidden){clearInterval(refreshInterval);}
+else{loadAssignments();refreshInterval=setInterval(loadAssignments,30000);}
+});
+
+verifyLogin();
+loadAssignments();
+</script>
+</body>
+</html>

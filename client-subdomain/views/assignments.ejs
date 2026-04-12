@@ -1,0 +1,184 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Assignments | Electro-Aid Technologies</title>
+
+<style>
+* { box-sizing: border-box; margin:0; padding:0; }
+
+body {
+    font-family: Arial, sans-serif;
+    background-color: #8B4513;
+    color: #333;
+    padding-bottom:70px;
+}
+
+a { text-decoration:none; color:inherit; }
+
+/* MAIN */
+main {
+    max-width:750px;
+    margin:30px auto;
+    padding:0 15px;
+}
+
+section {
+    background:white;
+    padding:20px;
+    margin-bottom:20px;
+    border-radius:18px;
+    box-shadow:0 4px 12px rgba(0,0,0,0.15);
+}
+
+section h2 {
+    margin-bottom:15px;
+    font-size:1.6rem;
+    color:#8B4513;
+}
+
+section ul { list-style:none; }
+
+section ul li {
+    background:#F5DEB3;
+    margin-bottom:12px;
+    padding:15px;
+    border-radius:12px;
+    transition:0.2s;
+}
+
+section ul li:hover {
+    background:#D2A679;
+    transform:translateY(-2px);
+}
+
+section ul li a {
+    display:flex;
+    justify-content:space-between;
+    align-items:center;
+    width:100%;
+    color:#333;
+}
+
+.count {
+    font-weight:bold;
+    background:#A0522D;
+    color:white;
+    padding:4px 10px;
+    border-radius:10px;
+    font-size:0.85rem;
+}
+</style>
+</head>
+
+<body>
+
+<!-- ✅ HEADER -->
+<%- include("partials/header") %>
+
+<!-- ✅ TOP MENU -->
+<%- include("partials/top-menu", { currentPage: "assignments" }) %>
+
+<main>
+
+<section>
+<h2>Assignments Dashboard</h2>
+
+<ul>
+
+<li>
+    <a href="/assignments/insert">
+        <span>Insert Assignment</span>
+    </a>
+</li>
+
+<li>
+    <a href="/assignments/pending">
+        <span>Pending Assignments</span>
+        <span class="count" id="pendingCount">--</span>
+    </a>
+</li>
+
+<li>
+    <a href="/assignments/accepted">
+        <span>Accepted Assignments</span>
+        <span class="count" id="acceptedCount">--</span>
+    </a>
+</li>
+
+<li>
+    <a href="/assignments/work">
+        <span>Work In Progress</span>
+        <span class="count" id="workCount">--</span>
+    </a>
+</li>
+
+<li>
+    <a href="/assignments/completed">
+        <span>Completed Assignments</span>
+        <span class="count" id="completedCount">--</span>
+    </a>
+</li>
+
+<li>
+    <a href="/assignments/declined">
+        <span>Declined Assignments</span>
+        <span class="count" id="declinedCount">--</span>
+    </a>
+</li>
+
+</ul>
+</section>
+
+</main>
+
+<!-- ✅ FOOTER -->
+<%- include("partials/footer") %>
+
+<script>
+
+/* ================= SET UI STATE ================= */
+function setGuestState() {
+    document.querySelectorAll(".count").forEach(el => {
+        el.textContent = "--";
+    });
+}
+
+/* ================= LOAD COUNTS ================= */
+async function loadAssignmentCounts(){
+    try {
+        const res = await fetch("/assignments/summary", {
+            credentials:"include"
+        });
+
+        if(res.status === 401){
+            // 🔥 Guest user
+            setGuestState();
+            return;
+        }
+
+        if(!res.ok) throw new Error();
+
+        const data = await res.json();
+
+        document.getElementById("pendingCount").textContent = data.pending ?? 0;
+        document.getElementById("acceptedCount").textContent = data.accepted ?? 0;
+        document.getElementById("workCount").textContent = data.work ?? 0;
+        document.getElementById("completedCount").textContent = data.completed ?? 0;
+        document.getElementById("declinedCount").textContent = data.declined ?? 0;
+
+    } catch(err){
+        console.error("Failed to load assignment counts", err);
+        setGuestState();
+    }
+}
+
+/* ================= INIT ================= */
+loadAssignmentCounts();
+setInterval(loadAssignmentCounts, 15000);
+
+</script>
+
+</body>
+</html>
