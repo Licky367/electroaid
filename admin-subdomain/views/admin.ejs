@@ -1,0 +1,159 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Admin Dashboard | Electro-Aid</title>
+
+<style>
+*{box-sizing:border-box;margin:0;padding:0;}
+
+body{
+font-family:Arial,sans-serif;
+background:#8B4513;
+padding-bottom:70px;
+color:#333;
+}
+
+main{
+max-width:1100px;
+margin:25px auto;
+padding:0 15px;
+}
+
+/* WELCOME */
+.welcome-card{
+background:white;
+padding:25px;
+border-radius:16px;
+box-shadow:0 4px 12px rgba(0,0,0,0.15);
+margin-bottom:20px;
+}
+
+.welcome-card h2{
+color:#A0522D;
+margin-bottom:10px;
+}
+
+.welcome-card p{
+line-height:1.6;
+margin:8px 0;
+}
+
+/* SECTION */
+.section{
+background:white;
+padding:20px;
+border-radius:16px;
+margin-bottom:20px;
+box-shadow:0 4px 12px rgba(0,0,0,0.1);
+}
+
+.section h3{
+color:#A0522D;
+margin-bottom:10px;
+}
+
+.section ul{
+padding-left:18px;
+}
+
+.section ul li{
+margin-bottom:8px;
+line-height:1.5;
+}
+
+/* FOOTER */
+footer{
+position:fixed;
+bottom:0;
+width:100%;
+text-align:center;
+padding:12px;
+background:#A0522D;
+color:white;
+}
+</style>
+</head>
+
+<body>
+
+<!-- ✅ HEADER -->
+<%- include("admin-subdomain/header/header", { ADMIN_NAME: ADMIN_NAME, role: role }) %>
+
+<!-- ✅ TOP MENU -->
+<%- include("admin-subdomain/header/top-menu", { activePage: "home", role: role }) %>
+
+<main>
+
+<!-- ✅ WELCOME -->
+<div class="welcome-card">
+<h2>Welcome <%= ADMIN_NAME %>,</h2>
+
+<p>
+We are proud to have you on board as part of the Electro-Aid administrative team. Your position as a <strong><%= role %></strong> places you at the core of system oversight, coordination, and service assurance.
+</p>
+
+<p>
+As an administrator, you are entrusted with the responsibility of maintaining operational excellence across the platform. Your actions directly impact both expert performance and client satisfaction.
+</p>
+
+<p>
+Access to certain sections of this system is restricted and granted only to specific administrators based on the value of <strong>role</strong>. You are expected to operate strictly within your assigned permissions and uphold the highest standards of accountability.
+</p>
+
+<p>
+We trust in your ability to execute your duties with diligence, professionalism, and integrity.
+</p>
+
+<p>
+<strong>All the best as you supervise experts and communicate directly with clients.</strong>
+</p>
+</div>
+
+<!-- ✅ CORE RESPONSIBILITIES -->
+<div class="section">
+<h3>Core Responsibilities</h3>
+
+<ul>
+<li>Oversee and monitor expert activities across the platform</li>
+<li>Ensure effective and timely communication with clients</li>
+<li>Handle escalations and ensure proper issue resolution</li>
+<li>Maintain compliance with platform policies and standards</li>
+<li>Collaborate with other administrators to ensure smooth operations</li>
+</ul>
+</div>
+
+<!-- ✅ ROLE-BASED RESPONSIBILITIES -->
+<div class="section">
+<h3>Role-Based Responsibilities</h3>
+
+<ul>
+<li><strong>If role = SUPER_ADMIN:</strong> Full system oversight, administrator management, and high-level decision making</li>
+<li><strong>If role = FINANCIAL_ADMIN:</strong> Manage transactions, payouts, billing, and financial records</li>
+<li><strong>If role = OPERATIONS_ADMIN:</strong> Supervise workflows, expert coordination, and service delivery</li>
+<li><strong>If role = OPERATIONAL_ADMIN:</strong> Handle daily operations, support tasks, and system responsiveness</li>
+</ul>
+</div>
+
+<!-- ✅ CONDUCT -->
+<div class="section">
+<h3>Conduct & Expectations</h3>
+
+<ul>
+<li>Maintain professionalism in all interactions</li>
+<li>Respond promptly to system and client needs</li>
+<li>Respect permissions defined by role</li>
+<li>Uphold confidentiality and data integrity</li>
+<li>Continuously strive to improve service quality</li>
+</ul>
+</div>
+
+</main>
+
+<footer>
+© 2026 Electro-Aid Technologies
+</footer>
+
+</body>
+</html>

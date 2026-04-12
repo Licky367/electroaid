@@ -1,0 +1,335 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+<title>Admin Pending Expert Approvals | Electro-Aid Technologies</title>
+
+<style>
+
+*{box-sizing:border-box;margin:0;padding:0;}
+
+body{
+font-family:Arial,sans-serif;
+background:#8B4513;
+color:#333;
+padding-bottom:70px;
+}
+
+/* MAIN */
+main{
+max-width:900px;
+margin:30px auto;
+padding:0 15px;
+}
+
+.assignment-card{
+background:white;
+padding:20px;
+border-radius:15px;
+margin-bottom:20px;
+box-shadow:0 4px 12px rgba(0,0,0,0.2);
+}
+
+.assignment-card h3{
+margin-bottom:10px;
+color:#8B4513;
+}
+
+.info{
+margin-bottom:8px;
+font-size:0.95rem;
+}
+
+.info strong{
+color:#A0522D;
+}
+
+.actions{
+margin-top:15px;
+display:flex;
+gap:10px;
+}
+
+button{
+flex:1;
+padding:10px;
+border:none;
+border-radius:8px;
+cursor:pointer;
+font-weight:bold;
+color:white;
+}
+
+button:disabled{
+opacity:0.6;
+cursor:not-allowed;
+}
+
+.approve-btn{background:#28a745;}
+.approve-btn:hover{background:#1e7e34;}
+
+.reject-btn{background:#dc3545;}
+.reject-btn:hover{background:#b02a37;}
+
+.empty{
+text-align:center;
+color:white;
+font-size:1rem;
+margin-top:40px;
+}
+
+/* FOOTER */
+footer{
+position:fixed;
+bottom:0;
+width:100%;
+text-align:center;
+padding:12px;
+background:#A0522D;
+color:#fff;
+border-top-left-radius:25px;
+border-top-right-radius:25px;
+font-size:0.85rem;
+}
+
+</style>
+
+</head>
+
+<body>
+
+<!-- ✅ REUSABLE HEADER -->
+<%- include("partials/header", { ADMIN_NAME }) %>
+
+<!-- ✅ REUSABLE TOP MENU -->
+<%- include("partials/top-menu") %>
+
+<main>
+<div id="approvalContainer"></div>
+</main>
+
+<footer>
+<p>&copy; 2026 Electro-Aid Technologies</p>
+</footer>
+
+<script>
+
+/* ================= HELPERS ================= */
+
+function escapeHTML(text){
+if(!text) return ""
+return text
+.replace(/&/g,"&amp;")
+.replace(/</g,"&lt;")
+.replace(/>/g,"&gt;")
+.replace(/"/g,"&quot;")
+.replace(/'/g,"&#039;")
+}
+
+function formatDate(date){
+if(!date) return "N/A"
+return new Date(date).toLocaleDateString()
+}
+
+/* ================= LOAD ================= */
+
+async function loadWaitingAssignments(){
+
+const container = document.getElementById("approvalContainer")
+container.innerHTML = `<div class="empty">Loading...</div>`
+
+try{
+
+const res = await fetch(
+"/admin/assignments/pending-approval/api/waiting-approvals",
+{credentials:"include"}
+)
+
+if(!res.ok){
+throw new Error("Failed")
+}
+
+const assignments = await res.json()
+
+container.innerHTML = ""
+
+if(!Array.isArray(assignments) || assignments.length === 0){
+container.innerHTML = `
+<div class="empty">
+No assignments waiting for approval.
+</div>`
+return
+}
+
+assignments.forEach(a => {
+
+const budget = Number(a.budget || 0).toFixed(2)
+const payout = Number(a.payout || 0).toFixed(2)
+const profit = (Number(budget) - Number(payout)).toFixed(2)
+
+const rating = a.average_rating
+? `${a.average_rating} ⭐ (${a.total_reviews || 0})`
+: "N/A"
+
+const card = document.createElement("div")
+card.className = "assignment-card"
+
+card.innerHTML = `
+
+<h3>${escapeHTML(a.title)}</h3>
+
+<div class="info"><strong>Reference Code:</strong> ${escapeHTML(a.reference)}</div>
+<div class="info"><strong>Subject:</strong> ${escapeHTML(a.subject)}</div>
+<div class="info"><strong>Expert:</strong> ${escapeHTML(a.EXPERT_NAME || "N/A")}</div>
+<div class="info"><strong>Expert Rating:</strong> ${rating}</div>
+<div class="info"><strong>Due Date:</strong> ${formatDate(a.dueDate)}</div>
+<div class="info"><strong>Budget:</strong> $${budget}</div>
+<div class="info"><strong>Payout:</strong> $${payout}</div>
+<div class="info"><strong>Profit:</strong> $${profit}</div>
+
+<div class="actions">
+<button class="approve-btn">Approve</button>
+<button class="reject-btn">Reject</button>
+</div>
+
+`
+
+const approveBtn = card.querySelector(".approve-btn")
+const rejectBtn = card.querySelector(".reject-btn")
+
+approveBtn.onclick = () => approveAssignment(a.reference, approveBtn, rejectBtn)
+rejectBtn.onclick = () => rejectAssignment(a.reference, approveBtn, rejectBtn)
+
+container.appendChild(card)
+
+})
+
+}catch(err){
+
+console.error(err)
+
+container.innerHTML = `
+<div class="empty">
+Failed to load assignments.
+</div>
+`
+
+}
+
+}
+
+/* ================= APPROVE ================= */
+
+async function approveAssignment(reference, approveBtn, rejectBtn){
+
+if(!confirm("Approve this expert to proceed?")) return
+
+approveBtn.disabled = true
+rejectBtn.disabled = true
+
+try{
+
+const res = await fetch(
+`/admin/assignments/pending-approval/api/approve-assignment/${encodeURIComponent(reference)}`,
+{method:"POST",credentials:"include"}
+)
+
+if(res.ok){
+alert("Expert approved. Assignment accepted.")
+loadWaitingAssignments()
+loadApprovalCount()
+}else{
+alert("Error approving assignment.")
+approveBtn.disabled = false
+rejectBtn.disabled = false
+}
+
+}catch(e){
+console.error(e)
+alert("Server error.")
+approveBtn.disabled = false
+rejectBtn.disabled = false
+}
+
+}
+
+/* ================= REJECT ================= */
+
+async function rejectAssignment(reference, approveBtn, rejectBtn){
+
+if(!confirm("Reject this request?")) return
+
+approveBtn.disabled = true
+rejectBtn.disabled = true
+
+try{
+
+const res = await fetch(
+`/admin/assignments/pending-approval/api/reject-assignment/${encodeURIComponent(reference)}`,
+{method:"POST",credentials:"include"}
+)
+
+if(res.ok){
+alert("Request rejected. Assignment returned to pending.")
+loadWaitingAssignments()
+loadApprovalCount()
+}else{
+alert("Error rejecting request.")
+approveBtn.disabled = false
+rejectBtn.disabled = false
+}
+
+}catch(e){
+console.error(e)
+alert("Server error.")
+approveBtn.disabled = false
+rejectBtn.disabled = false
+}
+
+}
+
+/* ================= BADGE ================= */
+
+async function loadApprovalCount(){
+
+try{
+
+const res = await fetch(
+"/admin/assignments/pending-approval/api/waiting-approvals-count",
+{credentials:"include"}
+)
+
+if(!res.ok) return
+
+const data = await res.json()
+
+const badge = document.getElementById("approvalBadge")
+
+if(badge){
+badge.innerText = data.count > 0 ? data.count : ""
+}
+
+}catch(e){
+console.error(e)
+}
+
+}
+
+/* ================= AUTO REFRESH ================= */
+
+setInterval(() => {
+loadWaitingAssignments()
+loadApprovalCount()
+}, 30000)
+
+/* INIT */
+loadWaitingAssignments()
+loadApprovalCount()
+
+</script>
+
+</body>
+</html>

@@ -1,0 +1,210 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+<title>Admin | Waiting For Client Initiation</title>
+
+<style>
+
+*{box-sizing:border-box;margin:0;padding:0;}
+
+body{
+font-family:Arial,sans-serif;
+background:#8B4513;
+color:#333;
+padding-bottom:70px;
+}
+
+main{
+max-width:750px;
+margin:30px auto;
+padding:0 15px;
+}
+
+section{
+background:#fff;
+padding:25px;
+border-radius:18px;
+box-shadow:0 4px 12px rgba(0,0,0,0.15);
+}
+
+h2{
+margin-bottom:20px;
+font-size:1.6rem;
+color:#8B4513;
+}
+
+ol{padding-left:20px;}
+
+li{
+background:#f7f7f7;
+padding:12px;
+margin-bottom:12px;
+border-radius:10px;
+display:flex;
+justify-content:space-between;
+align-items:center;
+}
+
+.assignment-info{font-size:0.95rem;}
+
+.assignment-info strong{color:#A0522D;}
+
+.time-remaining{
+font-size:0.85rem;
+color:#555;
+margin-top:4px;
+}
+
+.status{
+font-size:0.8rem;
+color:#D2691E;
+margin-top:4px;
+}
+
+.view-btn{
+padding:6px 10px;
+border:none;
+border-radius:6px;
+background:#555;
+color:white;
+cursor:pointer;
+}
+
+.view-btn:hover{background:#333;}
+
+.empty{
+text-align:center;
+padding:20px;
+}
+
+footer{
+position:fixed;
+bottom:0;
+width:100%;
+text-align:center;
+padding:12px;
+background:#A0522D;
+color:#fff;
+border-top-left-radius:25px;
+border-top-right-radius:25px;
+font-size:0.85rem;
+}
+
+</style>
+</head>
+
+<body>
+
+<!-- ✅ REUSABLE HEADER -->
+<%- include('partials/header') %>
+
+<!-- ✅ REUSABLE TOP MENU -->
+<%- include('partials/top-menu') %>
+
+<main>
+
+<section>
+
+<h2>
+Waiting For Client Initiation (<%= assignments.length %>)
+</h2>
+
+<% if (assignments.length === 0) { %>
+
+<div class="empty">
+No assignments waiting for client initiation.
+</div>
+
+<% } %>
+
+<ol>
+
+<% assignments.forEach(a => { %>
+
+<li>
+
+<div class="assignment-info">
+
+<strong><%= a.reference %></strong> — <%= a.title %>
+
+<div>Client: <%= a.CLIENT_NAME || "Unknown" %></div>
+
+<div>Expert: <%= a.EXPERT_NAME || "Not assigned" %></div>
+
+<div class="time-remaining"
+data-due="<%= a.dueDate %>">
+</div>
+
+<div class="status">
+Status: Waiting for client initiation
+</div>
+
+</div>
+
+<button class="view-btn"
+onclick="viewAssignment('<%= a.reference %>')">
+View
+</button>
+
+</li>
+
+<% }) %>
+
+</ol>
+
+</section>
+
+</main>
+
+<footer>
+<p>&copy; 2026 Electro-Aid Technologies</p>
+</footer>
+
+<script>
+
+/* ===== TIME REMAINING (CLIENT SIDE ONLY) ===== */
+
+function updateTimers(){
+
+document.querySelectorAll("[data-due]").forEach(el => {
+
+const dueDate = el.getAttribute("data-due");
+
+const now = new Date().getTime();
+const due = new Date(dueDate).getTime();
+
+const diff = due - now;
+
+if(diff <= 0){
+    el.innerText = "Deadline passed";
+    return;
+}
+
+const days = Math.floor(diff/(1000*60*60*24));
+const hours = Math.floor((diff%(1000*60*60*24))/(1000*60*60));
+const minutes = Math.floor((diff%(1000*60*60))/(1000*60));
+
+el.innerText =
+`${days}d ${hours}h ${minutes}m remaining`;
+
+});
+
+}
+
+setInterval(updateTimers,60000);
+updateTimers();
+
+/* ===== VIEW ===== */
+
+function viewAssignment(reference){
+window.location.href =
+`/admin/assignments/waiting/view/${reference}`;
+}
+
+</script>
+
+</body>
+</html>

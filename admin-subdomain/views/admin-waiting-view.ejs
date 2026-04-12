@@ -1,0 +1,306 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+<title>Admin Waiting Assignment Details | Electro-Aid Technologies</title>
+
+<style>
+
+body{
+font-family:Arial;
+background:#8B4513;
+margin:0;
+padding-bottom:70px;
+}
+
+/* CONTENT */
+
+main{
+max-width:800px;
+margin:30px auto;
+padding:0 15px;
+}
+
+.container{
+background:white;
+padding:25px;
+border-radius:15px;
+}
+
+h2{
+margin-bottom:15px;
+color:#8B4513;
+}
+
+.info{
+margin-bottom:12px;
+}
+
+.files a{
+display:block;
+margin:5px 0;
+text-decoration:none;
+color:#333;
+}
+
+.files a:hover{
+text-decoration:underline;
+}
+
+.status{
+color:#B22222;
+font-weight:bold;
+margin-top:10px;
+}
+
+.actions{
+margin-top:20px;
+text-align:center;
+}
+
+.decline-btn{
+background:#B22222;
+color:white;
+border:none;
+padding:10px 16px;
+border-radius:6px;
+cursor:pointer;
+}
+
+.decline-btn:hover{
+background:#8B0000;
+}
+
+footer{
+position:fixed;
+bottom:0;
+width:100%;
+text-align:center;
+padding:12px;
+background:#A0522D;
+color:#fff;
+border-top-left-radius:25px;
+border-top-right-radius:25px;
+font-size:0.85rem;
+}
+
+/* MODAL */
+
+.modal{
+display:none;
+position:fixed;
+top:0;
+left:0;
+width:100%;
+height:100%;
+background:rgba(0,0,0,0.6);
+justify-content:center;
+align-items:center;
+}
+
+.modal-content{
+background:white;
+padding:20px;
+border-radius:10px;
+width:350px;
+}
+
+textarea{
+width:100%;
+height:80px;
+margin-top:10px;
+padding:8px;
+border-radius:6px;
+border:1px solid #ccc;
+}
+
+.modal-actions{
+margin-top:10px;
+text-align:right;
+}
+
+.modal-actions button{
+padding:8px 12px;
+border:none;
+border-radius:6px;
+cursor:pointer;
+}
+
+.cancel-btn{
+background:#777;
+color:white;
+}
+
+.confirm-btn{
+background:#B22222;
+color:white;
+}
+
+</style>
+
+</head>
+
+<body>
+
+<!-- ✅ REUSABLE HEADER -->
+<%- include('partials/header') %>
+
+<!-- ✅ REUSABLE TOP MENU -->
+<%- include('partials/top-menu') %>
+
+<main>
+
+<div class="container">
+
+<h2><%= assignment.title || "-" %></h2>
+
+<div class="info">
+<strong>Reference Code:</strong>
+<%= assignment.reference %>
+</div>
+
+<div class="info">
+<strong>Client:</strong>
+<%= assignment.CLIENT_NAME || "Unknown" %>
+</div>
+
+<div class="info">
+<strong>Assigned Expert:</strong>
+<%= assignment.EXPERT_NAME || "Not assigned" %>
+</div>
+
+<div class="info">
+<strong>Deadline:</strong>
+<%= assignment.dueDate || "-" %>
+</div>
+
+<div class="info">
+<strong>Instructions:</strong>
+<p><%= assignment.instructions || "No instructions provided." %></p>
+</div>
+
+<div class="info">
+<strong>Files:</strong>
+
+<div class="files">
+
+<% if (assignment.files && assignment.files.length > 0) { %>
+
+    <% assignment.files.forEach(f => { %>
+        <a href="<%= f.url %>" target="_blank">📎 <%= f.name %></a>
+    <% }) %>
+
+<% } else { %>
+
+    No files uploaded.
+
+<% } %>
+
+</div>
+
+</div>
+
+<div class="status">
+Waiting for client to initiate payment
+</div>
+
+<div class="actions">
+<button class="decline-btn" onclick="openDeclineModal()">
+Decline Assignment
+</button>
+</div>
+
+</div>
+
+</main>
+
+<footer>
+<p>&copy; 2026 Electro-Aid Technologies</p>
+</footer>
+
+<!-- MODAL -->
+
+<div id="declineModal" class="modal">
+
+<div class="modal-content">
+
+<h3>Decline Assignment</h3>
+
+<p>Provide reason:</p>
+
+<textarea id="declineReason"></textarea>
+
+<div class="modal-actions">
+
+<button class="cancel-btn" onclick="closeDeclineModal()">Cancel</button>
+
+<button class="confirm-btn" onclick="confirmDecline()">Confirm</button>
+
+</div>
+
+</div>
+
+</div>
+
+<script>
+
+/* MODAL */
+
+function openDeclineModal(){
+document.getElementById("declineModal").style.display="flex";
+}
+
+function closeDeclineModal(){
+document.getElementById("declineModal").style.display="none";
+}
+
+/* DECLINE */
+
+async function confirmDecline(){
+
+const reason =
+document.getElementById("declineReason").value.trim();
+
+if(!reason){
+alert("Provide reason.");
+return;
+}
+
+try{
+
+const res = await fetch(
+`/admin/assignments/waiting/<%= assignment.reference %>/decline`,
+{
+method:"POST",
+headers:{"Content-Type":"application/json"},
+body: JSON.stringify({ reason })
+}
+);
+
+if(res.ok){
+
+alert("Assignment declined");
+
+window.location.href="/admin/assignments/waiting";
+
+}else{
+
+alert("Failed to decline assignment");
+
+}
+
+}catch(err){
+
+alert("Server error");
+
+}
+
+}
+
+</script>
+
+</body>
+</html>

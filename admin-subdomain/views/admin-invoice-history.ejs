@@ -1,0 +1,291 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Expert Invoice | Electro-Aid Technologies</title>
+
+<style>
+*{box-sizing:border-box;margin:0;padding:0;}
+body{font-family:Arial,sans-serif;background:#8B4513;color:#333;padding-bottom:70px;}
+a{text-decoration:none;color:inherit;}
+
+main{max-width:900px;margin:30px auto;padding:0 15px;}
+
+section{
+background:#fff;
+padding:25px;
+border-radius:18px;
+margin-bottom:20px;
+}
+
+input,button{
+padding:10px;
+margin-top:10px;
+border-radius:8px;
+border:1px solid #ccc;
+}
+
+button{
+background:#A0522D;
+color:white;
+cursor:pointer;
+border:none;
+}
+
+table{
+width:100%;
+border-collapse:collapse;
+margin-top:15px;
+}
+
+th,td{
+border:1px solid #ddd;
+padding:10px;
+text-align:left;
+}
+
+th{
+background:#f2f2f2;
+}
+
+.paid{color:green;font-weight:bold;}
+.pending{color:orange;font-weight:bold;}
+.locked{color:red;font-weight:bold;}
+
+footer{
+position:fixed;
+bottom:0;
+width:100%;
+text-align:center;
+padding:12px;
+background:#A0522D;
+color:#fff;
+}
+</style>
+</head>
+
+<body>
+
+<%- include('partials/header') %>
+<%- include('partials/top-menu') %>
+
+<main>
+
+<!-- LOAD -->
+<section>
+
+<h2>Load Invoice</h2>
+
+<input type="text" id="regNoInput" placeholder="Enter REG_NO">
+<br>
+
+<input type="date" id="dateInput">
+<button onclick="loadByDate()">Load</button>
+
+<p id="weekRange" style="margin-top:10px;font-weight:bold;"></p>
+
+</section>
+
+<!-- INVOICE -->
+<section>
+
+<h2>Invoice</h2>
+
+<p>Status: <span id="status"></span></p>
+<p>Transaction: <span id="transaction"></span></p>
+
+<table>
+<thead>
+<tr>
+<th>Reference</th>
+<th>Title</th>
+<th>USD</th>
+<th>KES</th>
+</tr>
+</thead>
+
+<tbody id="assignmentTable"></tbody>
+</table>
+
+<h3 style="margin-top:15px;">Total USD: <span id="totalUSD"></span></h3>
+<h3>Total KES: <span id="totalKES"></span></h3>
+
+<button onclick="downloadPDF()">Download PDF</button>
+
+</section>
+
+<!-- HISTORY -->
+<section>
+
+<h2>Payment History</h2>
+
+<table>
+<thead>
+<tr>
+<th>Week</th>
+<th>USD</th>
+<th>KES</th>
+<th>Status</th>
+<th>Action</th>
+</tr>
+</thead>
+
+<tbody id="historyTable"></tbody>
+</table>
+
+</section>
+
+</main>
+
+<footer>
+<p>&copy; 2026 Electro-Aid Technologies</p>
+</footer>
+
+<script>
+
+let currentWeek = null;
+let currentRegNo = null;
+
+/* ================= GET REG ================= */
+
+function getRegNo(){
+
+const reg = document.getElementById("regNoInput").value;
+
+if(!reg){
+alert("Enter REG_NO");
+return null;
+}
+
+currentRegNo = reg;
+return reg;
+
+}
+
+/* ================= LOAD BY DATE ================= */
+
+async function loadByDate(){
+
+const regNo = getRegNo();
+if(!regNo) return;
+
+const date = document.getElementById("dateInput").value;
+
+if(!date){
+alert("Select a date");
+return;
+}
+
+const res = await fetch(`/api/invoice/by-date?date=${date}&regNo=${regNo}`);
+const data = await res.json();
+
+currentWeek = data.week;
+
+renderInvoice(data);
+
+}
+
+/* ================= RENDER ================= */
+
+function renderInvoice(data){
+
+document.getElementById("weekRange").innerText = data.weekRange;
+
+const statusEl = document.getElementById("status");
+
+statusEl.innerText = data.status;
+statusEl.className = "";
+
+if(data.status === "PAID") statusEl.classList.add("paid");
+else if(data.status === "PENDING") statusEl.classList.add("pending");
+else statusEl.classList.add("locked");
+
+document.getElementById("transaction").innerText =
+data.transactionCode || "-";
+
+const table = document.getElementById("assignmentTable");
+table.innerHTML = "";
+
+data.assignments.forEach(a=>{
+table.innerHTML += `
+<tr>
+<td>${a.reference}</td>
+<td>${a.title || "-"}</td>
+<td>${a.payoutUSD}</td>
+<td>${a.payoutKES}</td>
+</tr>
+`;
+});
+
+document.getElementById("totalUSD").innerText = data.totalUSD;
+document.getElementById("totalKES").innerText = data.totalKES;
+
+}
+
+/* ================= HISTORY ================= */
+
+async function loadHistory(){
+
+const regNo = getRegNo();
+if(!regNo) return;
+
+const res = await fetch(`/api/invoice/history?regNo=${regNo}`);
+const data = await res.json();
+
+const table = document.getElementById("historyTable");
+table.innerHTML = "";
+
+data.history.forEach(h=>{
+table.innerHTML += `
+<tr>
+<td>${h.weekRange}</td>
+<td>${h.amountUSD}</td>
+<td>${h.amountKES}</td>
+<td>${h.status}</td>
+<td>
+<button onclick="loadFromHistory('${h.week}')">
+View
+</button>
+</td>
+</tr>
+`;
+});
+
+}
+
+/* ================= LOAD FROM HISTORY ================= */
+
+async function loadFromHistory(week){
+
+if(!currentRegNo){
+alert("Enter REG_NO first");
+return;
+}
+
+const res = await fetch(`/api/invoice?week=${week}&regNo=${currentRegNo}`);
+const data = await res.json();
+
+currentWeek = week;
+
+renderInvoice(data);
+
+}
+
+/* ================= PDF ================= */
+
+function downloadPDF(){
+
+if(!currentWeek || !currentRegNo){
+alert("Load invoice first");
+return;
+}
+
+window.open(`/api/invoice/download?week=${currentWeek}&regNo=${currentRegNo}`, "_blank");
+
+}
+
+</script>
+
+</body>
+</html>

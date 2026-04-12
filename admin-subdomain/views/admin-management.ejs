@@ -1,0 +1,220 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+<title>Admin Management | Electro-Aid Technologies</title>
+
+<style>
+*{box-sizing:border-box;margin:0;padding:0;}
+
+body{
+font-family:Arial,sans-serif;
+background:#8B4513;
+color:#333;
+padding-top:110px;
+padding-bottom:70px;
+}
+
+main{
+max-width:1000px;
+margin:30px auto;
+padding:0 15px;
+}
+
+section{
+background:white;
+padding:20px;
+border-radius:18px;
+box-shadow:0 4px 12px rgba(0,0,0,0.15);
+}
+
+h2{
+margin-bottom:15px;
+color:#8B4513;
+}
+
+table{
+width:100%;
+border-collapse:collapse;
+margin-top:15px;
+}
+
+th,td{
+padding:10px;
+border-bottom:1px solid #ddd;
+text-align:left;
+}
+
+th{
+background:#f3f3f3;
+}
+
+button{
+padding:6px 12px;
+border:none;
+border-radius:6px;
+cursor:pointer;
+font-size:0.85rem;
+}
+
+.activate-btn{
+background:#4CAF50;
+color:white;
+}
+
+.deactivate-btn{
+background:#ff9800;
+color:white;
+}
+
+.delete-btn{
+background:#e53935;
+color:white;
+}
+
+button:hover{
+opacity:0.9;
+}
+
+.status-active{
+color:green;
+font-weight:bold;
+}
+
+.status-inactive{
+color:red;
+font-weight:bold;
+}
+
+.status-suspended{
+color:#555;
+font-weight:bold;
+}
+
+.locked-overlay{
+position:fixed;
+inset:0;
+background:rgba(0,0,0,0.7);
+color:white;
+display:flex;
+justify-content:center;
+align-items:center;
+font-size:1.4rem;
+z-index:9999;
+text-align:center;
+padding:20px;
+}
+
+footer{
+position:fixed;
+bottom:0;
+width:100%;
+text-align:center;
+padding:12px;
+background:#A0522D;
+color:white;
+}
+</style>
+</head>
+
+<body>
+
+<!-- ✅ HEADER -->
+<%- include("partials/header") %>
+
+<!-- ✅ TOP MENU -->
+<%- include("partials/top-menu", { admin }) %>
+
+<!-- 🔐 ACCESS CONTROL -->
+<% if (admin && admin.role !== "SUPER_ADMIN") { %>
+<div class="locked-overlay">
+🔒 Access Denied — Super Admin Only
+</div>
+<% } %>
+
+<main>
+
+<section>
+
+<h2>All Admin Accounts</h2>
+
+<table>
+
+<thead>
+<tr>
+<th>Name</th>
+<th>Email</th>
+<th>Role</th>
+<th>Status</th>
+<th>Actions</th>
+</tr>
+</thead>
+
+<tbody>
+
+<% (admins || []).forEach(a => { %>
+
+<tr>
+
+<td><%= a.ADMIN_NAME || '' %></td>
+
+<td><%= a.ADMIN_EMAIL || '' %></td>
+
+<td><%= a.role ? a.role.replace(/_/g, ' ') : '' %></td>
+
+<td class="
+<%= a.status === 'active' ? 'status-active' : '' %>
+<%= a.status === 'inactive' ? 'status-inactive' : '' %>
+<%= a.status === 'suspended' ? 'status-suspended' : '' %>
+">
+<%= a.status || '' %>
+</td>
+
+<td>
+
+<% if (a.role !== "SUPER_ADMIN") { %>
+
+<!-- TOGGLE -->
+<% if (a.status !== "suspended") { %>
+<form method="POST" action="/admin/management/toggle/<%= a.id %>" style="display:inline;">
+<button class="<%= a.status === 'active' ? 'deactivate-btn' : 'activate-btn' %>">
+<%= a.status === 'active' ? 'Deactivate' : 'Activate' %>
+</button>
+</form>
+<% } else { %>
+<span>Locked</span>
+<% } %>
+
+<!-- DELETE -->
+<form method="POST" action="/admin/management/delete/<%= a.id %>" style="display:inline;">
+<button class="delete-btn" onclick="return confirm('Delete this admin permanently?')">
+Delete
+</button>
+</form>
+
+<% } else { %>
+Protected
+<% } %>
+
+</td>
+
+</tr>
+
+<% }) %>
+
+</tbody>
+
+</table>
+
+</section>
+
+</main>
+
+<footer>
+© <%= new Date().getFullYear() %> Electro-Aid Technologies
+</footer>
+
+</body>
+</html>

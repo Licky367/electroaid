@@ -1,0 +1,278 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+<title>Admin Assignment Viewer | Electro-Aid Technologies</title>
+
+<style>
+
+*{box-sizing:border-box;margin:0;padding:0;}
+
+body{
+font-family:Arial,sans-serif;
+background:#8B4513;
+color:#333;
+padding-bottom:70px;
+}
+
+main{
+max-width:750px;
+margin:30px auto;
+padding:0 15px;
+}
+
+section{
+background:#fff;
+padding:25px;
+border-radius:18px;
+box-shadow:0 4px 12px rgba(0,0,0,0.15);
+}
+
+h2{
+margin-bottom:15px;
+font-size:1.6rem;
+color:#8B4513;
+}
+
+.info{
+margin-bottom:12px;
+font-size:0.95rem;
+}
+
+.info strong{
+color:#A0522D;
+}
+
+.files a{
+display:block;
+background:#f5f5f5;
+padding:8px;
+border-radius:6px;
+margin-bottom:6px;
+text-decoration:none;
+color:#333;
+}
+
+.files a:hover{
+background:#e6e6e6;
+}
+
+.countdown{
+font-weight:bold;
+}
+
+.timer-warning{
+color:red;
+}
+
+.button-row{
+margin-top:15px;
+display:flex;
+gap:10px;
+}
+
+.decline-btn{
+flex:1;
+padding:12px;
+border:none;
+border-radius:8px;
+background:#c0392b;
+color:white;
+font-weight:bold;
+cursor:pointer;
+}
+
+.decline-btn:hover{
+background:#922b21;
+}
+
+.admin-note{
+margin-top:10px;
+font-size:0.9rem;
+color:#A0522D;
+font-style:italic;
+}
+
+footer{
+position:fixed;
+bottom:0;
+width:100%;
+text-align:center;
+padding:12px;
+background-color:#A0522D;
+color:#fff;
+border-top-left-radius:25px;
+border-top-right-radius:25px;
+font-size:0.85rem;
+}
+
+</style>
+
+</head>
+
+<body>
+
+<!-- ✅ FIXED PARTIAL PATHS -->
+<%- include('partials/header') %>
+<%- include('partials/top-menu') %>
+
+<main>
+
+<section>
+
+<h2><%= assignment.title || "-" %></h2>
+
+<div class="info"><strong>Subject:</strong> <%= assignment.subject || "Not specified" %></div>
+
+<div class="info"><strong>Client:</strong> <%= assignment.CLIENT_NAME || "Unknown" %></div>
+
+<div class="info"><strong>Assigned Expert:</strong> <%= assignment.EXPERT_NAME || "Not yet assigned" %></div>
+
+<div class="info"><strong>Status:</strong> <%= assignment.status || "pending" %></div>
+
+<div class="info">
+<strong>Due Date & Time:</strong> 
+<span id="dueDate">
+<%= assignment.dueDate ? new Date(assignment.dueDate).toISOString() : "" %>
+</span>
+</div>
+
+<div class="info countdown">
+<strong>Time Remaining:</strong>
+<span id="countdown"></span>
+</div>
+
+<div class="info"><strong>Budget:</strong> $<%= assignment.budget ?? 0 %></div>
+
+<div class="info"><strong>Payout:</strong> $<%= assignment.payout ?? 0 %></div>
+
+<div class="info"><strong>Profit:</strong> $<%= assignment.profit ?? 0 %></div>
+
+<div class="info">
+<strong>Instructions:</strong>
+<p><%= assignment.instructions || "No instructions provided." %></p>
+</div>
+
+<div class="info">
+<strong>Files:</strong>
+
+<div class="files">
+
+<% if (assignment.files && assignment.files.length > 0) { %>
+
+    <% assignment.files.forEach(file => { %>
+        <a href="<%= file.url %>" target="_blank">📄 <%= file.name %></a>
+    <% }) %>
+
+<% } else { %>
+
+    No files uploaded.
+
+<% } %>
+
+</div>
+
+</div>
+
+<div class="button-row">
+<button class="decline-btn" onclick="declineAssignment()">Decline Assignment</button>
+</div>
+
+<div class="admin-note">
+Admin supervision mode — editing disabled.
+</div>
+
+</section>
+
+</main>
+
+<footer>
+<p>&copy; 2026 Electro-Aid Technologies</p>
+</footer>
+
+<script>
+
+/* ===== COUNTDOWN TIMER ===== */
+
+const dueDate = document.getElementById("dueDate").innerText;
+const timer = document.getElementById("countdown");
+
+function update(){
+
+if(!dueDate){
+    timer.innerText = "No deadline";
+    return;
+}
+
+const now = new Date().getTime();
+const due = new Date(dueDate).getTime();
+const distance = due - now;
+
+if(isNaN(due)){
+    timer.innerText = "Invalid date";
+    return;
+}
+
+if(distance <= 0){
+    timer.innerText = "Expired";
+    timer.classList.add("timer-warning");
+    return;
+}
+
+const days = Math.floor(distance/(1000*60*60*24));
+const hours = Math.floor((distance%(1000*60*60*24))/(1000*60*60));
+const minutes = Math.floor((distance%(1000*60*60))/(1000*60));
+const seconds = Math.floor((distance%(1000*60))/1000);
+
+timer.innerText =
+`${days}d ${hours}h ${minutes}m ${seconds}s`;
+
+if(distance < 21600000){
+    timer.classList.add("timer-warning");
+}
+
+}
+
+update();
+setInterval(update,1000);
+
+/* ===== DECLINE ===== */
+
+async function declineAssignment(){
+
+const reason = prompt("Provide reason for declining this assignment:");
+if(!reason) return;
+
+try{
+
+const res = await fetch(
+`/admin/assignments/pending/<%= assignment.reference %>/decline`,
+{
+method:"POST",
+headers:{ "Content-Type":"application/json" },
+body: JSON.stringify({ reason })
+}
+);
+
+if(res.ok){
+    window.location.href = "/admin/assignments/pending";
+}else{
+    alert("Failed to decline assignment");
+}
+
+}catch(err){
+console.error(err);
+alert("Server error");
+}
+
+}
+
+</script>
+
+</body>
+
+</html>

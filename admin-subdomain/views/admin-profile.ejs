@@ -1,0 +1,218 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Admin Profile</title>
+
+<style>
+*{box-sizing:border-box;margin:0;padding:0;}
+
+body{
+font-family:Arial;
+background:#8B4513;
+padding-top:80px;
+padding-bottom:80px;
+}
+
+/* ===== NAV ===== */
+nav{
+position:fixed;
+top:0;
+left:0;
+width:100%;
+background:#A0522D;
+display:flex;
+justify-content:space-around;
+padding:12px;
+z-index:1000;
+box-shadow:0 4px 10px rgba(0,0,0,0.3);
+}
+
+nav a{
+color:white;
+text-decoration:none;
+font-weight:bold;
+}
+
+nav a:hover{
+text-decoration:underline;
+}
+
+/* ===== MAIN ===== */
+main{
+max-width:700px;
+margin:30px auto;
+padding:0 15px;
+}
+
+.profile-box{
+background:white;
+padding:30px;
+border-radius:18px;
+box-shadow:0 4px 12px rgba(0,0,0,0.2);
+}
+
+h2{
+text-align:center;
+margin-bottom:20px;
+color:#8B4513;
+}
+
+.avatar-area{
+display:flex;
+justify-content:center;
+margin-bottom:20px;
+cursor:pointer;
+}
+
+.avatar{
+width:110px;
+height:110px;
+border-radius:50%;
+object-fit:cover;
+border:3px solid #D2691E;
+}
+
+input{
+width:100%;
+padding:10px;
+margin-bottom:12px;
+border:1px solid #ccc;
+border-radius:6px;
+}
+
+button{
+width:100%;
+padding:12px;
+background:#D2691E;
+color:white;
+border:none;
+border-radius:6px;
+cursor:pointer;
+}
+
+button:hover{
+background:#a65218;
+}
+
+footer{
+position:fixed;
+bottom:0;
+width:100%;
+background:#A0522D;
+color:white;
+text-align:center;
+padding:12px;
+}
+
+.status-warning{
+color:red;
+text-align:center;
+margin-bottom:15px;
+font-weight:bold;
+}
+</style>
+</head>
+
+<body>
+
+<!-- ===== NAVIGATION ===== -->
+<nav>
+<a href="/admin">Home</a>
+<a href="/admin/assignments">Assignments</a>
+<a href="/admin/profile">Profile</a>
+<a href="/admin/auth/logout">Logout</a>
+</nav>
+
+<main>
+<div class="profile-box">
+
+<h2>My Profile</h2>
+
+<!-- ===== STATUS WARNING (NOW WORKS) ===== -->
+<% if (admin && admin.status && admin.status !== 'active') { %>
+<div class="status-warning">
+Your account is <%= admin.status %>. Some actions may be restricted.
+</div>
+<% } %>
+
+<form method="POST" action="/admin/profile/update" enctype="multipart/form-data">
+
+<!-- ===== AVATAR ===== -->
+<div class="avatar-area" onclick="document.getElementById('file').click()">
+<img class="avatar"
+src="<%= admin.ADMIN_PROFILE_IMAGE ? admin.ADMIN_PROFILE_IMAGE : 'https://cdn-icons-png.flaticon.com/512/149/149071.png' %>">
+</div>
+
+<input 
+type="file" 
+id="file" 
+name="ADMIN_PROFILE_IMAGE" 
+accept="image/*"
+style="display:none"
+onchange="previewImage(event)"
+>
+
+<!-- ===== NAME ===== -->
+<label>Full Name</label>
+<input 
+type="text" 
+name="ADMIN_NAME" 
+value="<%= admin.ADMIN_NAME || '' %>" 
+required
+>
+
+<!-- ===== EMAIL ===== -->
+<label>Email</label>
+<input 
+type="email" 
+name="ADMIN_EMAIL"
+value="<%= admin.ADMIN_EMAIL ? admin.ADMIN_EMAIL.toLowerCase() : '' %>"
+<%= admin.role !== 'SUPER_ADMIN' ? 'readonly' : '' %>
+required
+>
+
+<!-- ===== PHONE ===== -->
+<label>Phone</label>
+<input 
+type="tel" 
+name="ADMIN_PHONE" 
+value="<%= admin.ADMIN_PHONE || '' %>"
+>
+
+<!-- ===== ROLE ===== -->
+<label>Role</label>
+<input 
+type="text" 
+value="<%= admin.role ? admin.role.replace(/_/g, ' ') : '' %>" 
+readonly
+>
+
+<button type="submit">Update Profile</button>
+
+</form>
+
+</div>
+</main>
+
+<footer>
+© <%= new Date().getFullYear() %>
+</footer>
+
+<!-- ===== IMAGE PREVIEW SCRIPT ===== -->
+<script>
+function previewImage(event) {
+    const file = event.target.files[0];
+    if (!file) return;
+
+    const reader = new FileReader();
+    reader.onload = function(e) {
+        document.querySelector(".avatar").src = e.target.result;
+    };
+    reader.readAsDataURL(file);
+}
+</script>
+
+</body>
+</html>

@@ -1,0 +1,242 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+<title>Admin | Payout Management</title>
+
+<style>
+*{ box-sizing:border-box; margin:0; padding:0; }
+
+body{
+font-family:Arial,sans-serif;
+background:#8B4513;
+color:#333;
+padding-top:110px;
+padding-bottom:90px;
+}
+
+main{
+max-width:1000px;
+margin:25px auto;
+padding:20px;
+}
+
+/* SECTION */
+.section{
+background:#D2B48C;
+border:2px solid #A0522D;
+border-radius:14px;
+padding:20px;
+margin-bottom:25px;
+box-shadow:0 4px 12px rgba(0,0,0,0.2);
+}
+
+.section h3{
+color:#8B4513;
+margin-bottom:12px;
+}
+
+/* INPUTS */
+label{
+display:block;
+margin-bottom:6px;
+font-weight:bold;
+}
+
+input{
+width:100%;
+padding:10px;
+margin-bottom:12px;
+border-radius:8px;
+border:1px solid #A0522D;
+}
+
+button{
+padding:10px 16px;
+background:#D2691E;
+color:white;
+border:none;
+border-radius:8px;
+cursor:pointer;
+}
+
+button:hover{
+background:#A0522D;
+}
+
+/* TABLE */
+table{
+width:100%;
+border-collapse:collapse;
+margin-top:10px;
+}
+
+table th, table td{
+border:1px solid #A0522D;
+padding:8px;
+text-align:left;
+}
+
+table th{
+background:#A0522D;
+color:white;
+}
+</style>
+</head>
+
+<body>
+
+<!-- ✅ HEADER -->
+<%- include("partials/header") %>
+
+<!-- ✅ TOP MENU -->
+<%- include("partials/top-menu", { admin }) %>
+
+<main>
+
+<!-- ================= GLOBAL ================= -->
+<div class="section">
+<h3>Global Payout Percentage</h3>
+
+<form method="POST" action="/admin/payout-management/global">
+
+<label>Percentage (%)</label>
+<input 
+type="number" 
+name="percentage" 
+value="<%= globalPercentage ?? '' %>" 
+min="0" 
+max="100"
+required
+>
+
+<button type="submit">Save</button>
+</form>
+</div>
+
+<!-- ================= GROUP RULES ================= -->
+<div class="section">
+<h3>Group Rules</h3>
+
+<form method="POST" action="/admin/payout-management/group">
+<label>Group Range</label>
+<input 
+type="text" 
+name="groupRange" 
+placeholder="e.g. 0-10" 
+required
+>
+
+<label>Percentage (%)</label>
+<input 
+type="number" 
+name="percentage" 
+min="0"
+max="100"
+required
+>
+
+<button type="submit">Save Rule</button>
+</form>
+
+<table>
+<tr>
+<th>Group Range</th>
+<th>Percentage</th>
+</tr>
+
+<% if(groupRules?.length){ %>
+<% groupRules.forEach(rule => { %>
+<tr>
+<td><%= rule.groupRange %></td>
+<td><%= rule.percentage %>%</td>
+</tr>
+<% }) %>
+<% } else { %>
+<tr>
+<td colspan="2">No group rules</td>
+</tr>
+<% } %>
+
+</table>
+</div>
+
+<!-- ================= INDIVIDUAL RULES ================= -->
+<div class="section">
+<h3>Individual Expert Rules</h3>
+
+<form method="POST" action="/admin/payout-management/individual">
+<label>Expert REG_NO</label>
+<input 
+type="text" 
+name="REG_NO" 
+placeholder="Enter expert registration number"
+required
+>
+
+<label>Percentage (%)</label>
+<input 
+type="number" 
+name="percentage" 
+min="0"
+max="100"
+required
+>
+
+<button type="submit">Save Rule</button>
+</form>
+
+<table>
+<tr>
+<th>Expert REG_NO</th>
+<th>Percentage</th>
+</tr>
+
+<% if(individualRules?.length){ %>
+<% individualRules.forEach(rule => { %>
+<tr>
+<td><%= rule.expertReg || rule.REG_NO %></td>
+<td><%= rule.percentage %>%</td>
+</tr>
+<% }) %>
+<% } else { %>
+<tr>
+<td colspan="2">No individual rules</td>
+</tr>
+<% } %>
+
+</table>
+</div>
+
+<!-- ================= ASSIGNMENT OVERRIDE ================= -->
+<div class="section">
+<h3>Assignment Override</h3>
+
+<form method="POST" action="/admin/payout-management/assignment">
+<label>Assignment Reference</label>
+<input 
+type="text" 
+name="reference" 
+placeholder="Enter assignment reference"
+required
+>
+
+<label>Percentage (%)</label>
+<input 
+type="number" 
+name="percentage" 
+min="0"
+max="100"
+required
+>
+
+<button type="submit">Apply Override</button>
+</form>
+</div>
+
+</main>
+
+</body>
+</html>
