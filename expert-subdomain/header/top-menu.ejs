@@ -1,0 +1,72 @@
+<style>
+.top-nav{
+    position:fixed;
+    top:52px;
+    left:0;
+    width:100%;
+    background:#8B4513;
+    display:flex;
+    justify-content:space-between;
+    align-items:center;
+    padding:10px;
+    z-index:999;
+}
+
+.top-nav a{
+    color:white;
+    text-decoration:none;
+    font-weight:bold;
+    font-size:14px;
+}
+
+.top-nav a:hover{
+    text-decoration:underline;
+}
+
+/* ✅ ACTIVE LINK */
+.top-nav a.active{
+    text-decoration:underline;
+    border-bottom:2px solid white;
+    padding-bottom:2px;
+}
+
+.nav-left{
+    display:flex;
+    align-items:center;
+    gap:20px;
+}
+
+.nav-right{
+    display:flex;
+    align-items:center;
+    gap:15px;
+}
+</style>
+
+<nav class="top-nav">
+
+    <!-- LEFT LINKS -->
+    <div class="nav-left">
+        <a href="/expert">Home</a>
+        <a href="/expert/assignments">Assignments</a>
+        <a href="/expert/invoice">My Invoice</a>
+    </div>
+
+    <!-- RIGHT SIDE -->
+    <div class="nav-right">
+        <a href="/expert/logout">Logout</a>
+    </div>
+
+</nav>
+
+<!-- ✅ ACTIVE LINK SCRIPT -->
+<script>
+const links = document.querySelectorAll('.top-nav a');
+const currentPath = window.location.pathname;
+
+links.forEach(link => {
+    if(link.getAttribute('href') === currentPath){
+        link.classList.add('active');
+    }
+});
+</script>
