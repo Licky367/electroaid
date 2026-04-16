@@ -1,0 +1,216 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Edit Profile | Electro-Aid Technologies</title>
+
+<style>
+*{box-sizing:border-box;margin:0;padding:0;}
+
+body{
+    font-family:Arial,sans-serif;
+    line-height:1.6;
+    background-color:#8B4513;
+    color:#333;
+    padding-bottom:100px;
+}
+
+a{text-decoration:none;color:inherit;}
+
+main{
+    max-width:600px;
+    margin:25px auto;
+    padding:0 15px;
+}
+
+section{
+    background-color:#fff;
+    padding:18px;
+    border-radius:18px;
+    box-shadow:0 4px 12px rgba(0,0,0,0.15);
+}
+
+section h2{margin-bottom:10px;color:#8B4513;}
+
+form{
+    display:flex;
+    flex-direction:column;
+}
+
+label{
+    margin-bottom:6px;
+    font-weight:bold;
+}
+
+input{
+    padding:10px;
+    margin-bottom:15px;
+    border-radius:8px;
+    border:1px solid #ccc;
+}
+
+input[readonly]{background-color:#f0f0f0;}
+
+button{
+    background-color:#8B4513;
+    color:#fff;
+    padding:10px;
+    border:none;
+    border-radius:8px;
+    cursor:pointer;
+}
+
+button:hover{background-color:#A0522D;}
+
+.avatar-preview{
+    width:100px;
+    height:100px;
+    border-radius:50%;
+    margin-bottom:15px;
+    background-size:cover;
+    background-position:center;
+    cursor:pointer;
+    border:2px solid #A0522D;
+}
+
+.message{
+    margin-bottom:10px;
+    font-weight:bold;
+}
+
+.success{color:green;}
+.error{color:red;}
+
+.hidden{display:none;}
+
+#CLIENT_PROFILE_IMAGE_MODAL{
+    position:fixed;
+    top:0;
+    left:0;
+    width:100%;
+    height:100%;
+    background:rgba(0,0,0,0.5);
+    display:flex;
+    align-items:center;
+    justify-content:center;
+    z-index:2000;
+}
+
+#CLIENT_PROFILE_IMAGE_MODAL div{
+    background:#fff;
+    padding:20px;
+    border-radius:12px;
+    text-align:center;
+    max-width:300px;
+    width:90%;
+}
+
+#CLIENT_PROFILE_IMAGE_MODAL img{
+    width:100%;
+    border-radius:12px;
+    margin-bottom:15px;
+}
+</style>
+</head>
+
+<body>
+
+<!-- ✅ REUSABLE HEADER -->
+<%- include("partials/header") %>
+
+<!-- ✅ REUSABLE TOP MENU -->
+<%- include("partials/top-menu", { currentPage: "profile" }) %>
+
+<main>
+<section>
+
+<h2>Edit Profile</h2>
+
+<!-- SERVER MESSAGES -->
+<% if (error) { %>
+<div class="message error"><%= error %></div>
+<% } %>
+
+<% if (success) { %>
+<div class="message success"><%= success %></div>
+<% } %>
+
+<form method="POST" action="/profile/edit" enctype="multipart/form-data">
+
+<div class="avatar-preview"
+id="CLIENT_AVATAR_PREVIEW"
+style="background-image:url('<%= client.CLIENT_PROFILE_IMAGE || "https://cdn-icons-png.flaticon.com/512/1077/1077012.png" %>')">
+</div>
+
+<input type="file" name="CLIENT_PROFILE_IMAGE" id="CLIENT_PROFILE_IMAGE_INPUT" accept="image/*" style="display:none;">
+
+<label>Full Name</label>
+<input type="text" name="CLIENT_NAME" value="<%= client.CLIENT_NAME %>" required>
+
+<label>Email (cannot be changed)</label>
+<input type="email" value="<%= client.CLIENT_EMAIL %>" readonly>
+
+<label>Phone Number</label>
+<input type="text" name="CLIENT_PHONE_NUMBER" value="<%= client.CLIENT_PHONE_NUMBER %>" required>
+
+<button type="submit">Save Changes</button>
+
+</form>
+
+</section>
+</main>
+
+<!-- ✅ REUSABLE FOOTER -->
+<%- include("partials/footer") %>
+
+<!-- MODAL -->
+<div id="CLIENT_PROFILE_IMAGE_MODAL" class="hidden">
+<div>
+<img id="CLIENT_PROFILE_IMAGE_LARGE" src="">
+<div style="display:flex;justify-content:space-between;">
+<button onclick="closeModal()">Close</button>
+<button onclick="triggerFile()">Change</button>
+</div>
+</div>
+</div>
+
+<script>
+const preview = document.getElementById("CLIENT_AVATAR_PREVIEW")
+const fileInput = document.getElementById("CLIENT_PROFILE_IMAGE_INPUT")
+const modal = document.getElementById("CLIENT_PROFILE_IMAGE_MODAL")
+const large = document.getElementById("CLIENT_PROFILE_IMAGE_LARGE")
+
+preview.onclick = () => {
+const bg = preview.style.backgroundImage
+if(!bg.includes("1077012.png")){
+large.src = bg.slice(5, -2)
+modal.classList.remove("hidden")
+}else{
+fileInput.click()
+}
+}
+
+function closeModal(){
+modal.classList.add("hidden")
+}
+
+function triggerFile(){
+fileInput.click()
+}
+
+fileInput.onchange = function(){
+const file = this.files[0]
+if(file){
+const reader = new FileReader()
+reader.onload = e => {
+preview.style.backgroundImage = `url(${e.target.result})`
+large.src = e.target.result
+}
+reader.readAsDataURL(file)
+}
+}
+</script>
+
+</body>
+</html>

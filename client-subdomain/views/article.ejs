@@ -1,0 +1,231 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Article Writing Assignment | Electro-Aid Technologies</title>
+
+<style>
+*{box-sizing:border-box;margin:0;padding:0;}
+
+body{
+font-family:Arial,sans-serif;
+background:#8B4513;
+color:#333;
+padding-bottom:70px;
+}
+
+a{text-decoration:none;color:inherit;}
+
+main{
+max-width:750px;
+margin:30px auto;
+padding:0 15px;
+}
+
+section{
+background:#fff;
+padding:25px;
+border-radius:18px;
+box-shadow:0 4px 12px rgba(0,0,0,0.15);
+}
+
+h2{
+margin-bottom:15px;
+color:#8B4513;
+}
+
+label{
+display:block;
+margin-top:15px;
+font-weight:bold;
+}
+
+input,select,textarea{
+width:100%;
+padding:10px;
+margin-top:6px;
+border-radius:8px;
+border:1px solid #ccc;
+}
+
+textarea{
+min-height:120px;
+resize:vertical;
+}
+
+button{
+margin-top:20px;
+padding:12px;
+width:100%;
+border:none;
+border-radius:10px;
+background:#A0522D;
+color:white;
+cursor:pointer;
+font-weight:bold;
+transition:0.2s;
+}
+
+button:hover{
+background:#8B4513;
+}
+
+button:disabled{
+background:#ccc;
+cursor:not-allowed;
+}
+
+/* UI MESSAGES */
+.success-box{
+background:#d4edda;
+color:#155724;
+padding:15px;
+margin-bottom:15px;
+border-radius:8px;
+border:1px solid #c3e6cb;
+}
+
+.error-box{
+background:#f8d7da;
+color:#721c24;
+padding:15px;
+margin-bottom:15px;
+border-radius:8px;
+border:1px solid #f5c6cb;
+}
+</style>
+</head>
+
+<body>
+
+<!-- HEADER -->
+<%- include("partials/header") %>
+
+<!-- TOP MENU -->
+<%- include("partials/top-menu", { currentPage: "assignments" }) %>
+
+<main>
+<section>
+
+<h2>Insert Article Writing Assignment</h2>
+
+<div id="messageBox"></div>
+
+<form id="form" enctype="multipart/form-data">
+
+<input type="hidden" name="type" value="article">
+
+<label>Subject</label>
+<select name="subject" required>
+<option value="">-- Select Subject --</option>
+<% articleCategories.forEach(c => { %>
+<option value="<%= c %>"><%= c %></option>
+<% }) %>
+</select>
+
+<label>Title</label>
+<input type="text" name="title" required>
+
+<label>Files</label>
+<input type="file" name="files[]" multiple>
+
+<label>Instructions</label>
+<textarea name="instructions" required></textarea>
+
+<label>Deadline</label>
+<input type="datetime-local" name="deadline" required>
+
+<label>Timezone</label>
+<select name="timezone" required>
+<option value="">-- Select Timezone --</option>
+<% timezones.forEach(tz => { %>
+<option value="<%= tz %>"><%= tz %></option>
+<% }) %>
+</select>
+
+<label>Budget ($)</label>
+<input type="number" name="budget" min="1" step="0.01" required>
+
+<button type="submit" id="submitBtn">Insert Assignment</button>
+
+</form>
+
+</section>
+</main>
+
+<!-- FOOTER -->
+<%- include("partials/footer") %>
+
+<script>
+
+/* ELEMENTS */
+const form = document.getElementById("form");
+const submitBtn = document.getElementById("submitBtn");
+const messageBox = document.getElementById("messageBox");
+
+/* SUBMIT */
+form.addEventListener("submit", async (e)=>{
+e.preventDefault();
+
+messageBox.innerHTML = "";
+
+submitBtn.disabled = true;
+submitBtn.innerText = "Submitting...";
+
+const formData = new FormData(form);
+
+try{
+
+const res = await fetch("/assignments/create",{
+method:"POST",
+body:formData,
+credentials:"include"
+});
+
+const data = await res.json();
+
+if(data.success){
+
+messageBox.innerHTML = `
+<div class="success-box">
+Assignment submitted successfully!<br>
+Reference: <strong>${data.reference}</strong>
+</div>
+`;
+
+form.reset();
+
+setTimeout(()=>{
+window.location.href = "/assignments/work";
+}, 2000);
+
+}else{
+
+messageBox.innerHTML = `
+<div class="error-box">
+${data.message || "Failed to submit assignment"}
+</div>
+`;
+
+submitBtn.disabled = false;
+submitBtn.innerText = "Insert Assignment";
+}
+
+}catch{
+
+messageBox.innerHTML = `
+<div class="error-box">
+Network error. Please try again.
+</div>
+`;
+
+submitBtn.disabled = false;
+submitBtn.innerText = "Insert Assignment";
+}
+
+});
+</script>
+
+</body>
+</html>

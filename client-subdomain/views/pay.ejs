@@ -1,0 +1,132 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Pay Assignment | Electro-Aid Technologies</title>
+
+<style>
+*{box-sizing:border-box;margin:0;padding:0;}
+body{
+  font-family:Arial,sans-serif;
+  background-color:#8B4513;
+  color:#333;
+  padding-bottom:100px;
+}
+a{text-decoration:none;color:inherit;}
+main{
+  max-width:750px;
+  margin:30px auto;
+  padding:20px;
+  background-color:#fff;
+  border-radius:18px;
+  box-shadow:0 4px 12px rgba(0,0,0,0.15);
+}
+h2{margin-bottom:15px;color:#8B4513;}
+h3{margin-bottom:15px;}
+hr{margin:20px 0;}
+button{
+  padding:10px 16px;
+  background-color:#D2691E;
+  color:white;
+  border:none;
+  border-radius:6px;
+  cursor:pointer;
+  width:100%;
+}
+button:hover{background-color:#8B4513;}
+button:disabled{
+  background-color:#aaa;
+  cursor:not-allowed;
+}
+.option{margin-bottom:25px;}
+</style>
+</head>
+
+<body>
+
+<!-- ✅ REUSABLE HEADER -->
+<%- include("partials/header") %>
+
+<!-- ✅ REUSABLE TOP MENU -->
+<%- include("partials/top-menu", { currentPage: "assignments" }) %>
+
+<main>
+
+<h2>Payment Summary</h2>
+
+<p><strong>Title:</strong> <%= title %></p>
+<p><strong>Reference:</strong> <%= reference %></p>
+<p><strong>Amount (USD):</strong> $<%= amount_USD.toFixed(2) %></p>
+<p><strong>Payment Type:</strong> <%= type.charAt(0).toUpperCase() + type.slice(1) %></p>
+
+<hr>
+
+<h3>Select Payment Method</h3>
+
+<!-- Payment Options -->
+<% paymentMethods.forEach(function(method) { %>
+  <div class="option">
+    <% if(method === "MPESA") { %>
+      <button onclick="pay('<%= method %>')">
+        Pay with <%= method %> (Ksh <%= amount_KES.toFixed(2) %>)
+      </button>
+    <% } else { %>
+      <button onclick="pay('<%= method %>')">
+        Pay with <%= method %> ($<%= amount_USD.toFixed(2) %>)
+      </button>
+    <% } %>
+  </div>
+<% }); %>
+
+</main>
+
+<!-- ✅ REUSABLE FOOTER -->
+<%- include("partials/footer") %>
+
+<script>
+const reference = "<%= reference %>";
+const type = "<%= type %>";
+const amount_USD = Number("<%= amount_USD %>");
+const amount_KES = Number("<%= amount_KES %>");
+
+async function pay(method) {
+    let accountIdentifier = "";
+
+    if(method === "MPESA"){
+        accountIdentifier = prompt("Enter your phone number for MPESA:");
+        if(!accountIdentifier) return alert("Phone number required.");
+    }
+
+    if(method === "CARD" || method === "ACH"){
+        accountIdentifier = prompt("Enter your email or account identifier:");
+        if(!accountIdentifier) return alert("Email / account identifier required.");
+    }
+
+    try {
+        const res = await fetch("/api/process-payment", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ reference, type, method, accountIdentifier }),
+            credentials: "include"
+        });
+
+        const data = await res.json();
+
+        if(data.success && data.redirect){
+            window.location.href = data.redirect;
+        } else if(data.success){
+            alert("Payment initiated successfully.");
+        } else {
+            alert(data.message || "Payment failed.");
+        }
+
+    } catch(err) {
+        console.error(err);
+        alert("Server error. Please try again.");
+    }
+}
+</script>
+
+</body>
+</html>

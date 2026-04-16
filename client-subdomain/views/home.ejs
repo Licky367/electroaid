@@ -1,0 +1,156 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+<title>E-aid | Electro-Aid Technologies</title>
+
+<style>
+*{box-sizing:border-box;margin:0;padding:0;}
+
+body{
+font-family:Arial,sans-serif;
+line-height:1.6;
+background:#8B4513;
+color:#333;
+padding-bottom:70px;
+}
+
+a{text-decoration:none;color:inherit}
+
+/* HEADER */
+header{
+display:flex;
+justify-content:space-between;
+align-items:center;
+padding:8px 16px;
+background:#A0522D;
+border-bottom-left-radius:25px;
+border-bottom-right-radius:25px;
+box-shadow:0 4px 10px rgba(0,0,0,0.3);
+position:sticky;
+top:0;
+z-index:1000;
+}
+
+header h1 a{
+font-weight:700;
+font-size:2rem;
+color:#fff;
+}
+
+header nav{
+display:flex;
+align-items:center;
+gap:6px;
+}
+
+header nav a.icon-link{
+font-size:1.5rem;
+padding:6px;
+border-radius:6px;
+display:flex;
+align-items:center;
+justify-content:center;
+}
+
+header nav a.icon-link:hover{
+background:#D2691E;
+}
+
+/* CONTENT */
+main{
+max-width:750px;
+margin:25px auto;
+padding:0 15px;
+}
+
+section{
+background:#fff;
+padding:18px;
+margin-bottom:18px;
+border-radius:18px;
+box-shadow:0 4px 12px rgba(0,0,0,0.15);
+}
+
+section h2{
+margin-bottom:10px;
+font-size:1.6rem;
+color:#8B4513;
+}
+</style>
+</head>
+
+<body>
+
+<header>
+<h1>
+<a href="/">
+E<span style="color:#FFD700;">⚡</span>aid
+</a>
+</h1>
+
+<nav>
+
+<!-- ✅ WHATSAPP FROM ENV -->
+<a href="https://wa.me/<%= SUPPORT_WHATSAPP %>" target="_blank" class="icon-link" title="WhatsApp">
+<svg xmlns="http://www.w3.org/2000/svg" width="22" height="22" fill="white" viewBox="0 0 24 24">
+<path d="M20.52 3.48A11.91 11.91 0 0012.06 0C5.53 0 .24 5.29.24 11.82c0 2.08.54 4.11 1.57 5.9L0 24l6.44-1.68a11.77 11.77 0 005.62 1.43h.01c6.53 0 11.82-5.29 11.82-11.82a11.8 11.8 0 00-3.37-8.45z"/>
+</svg>
+</a>
+
+<!-- ✅ PHONE FROM ENV -->
+<a href="tel:<%= SUPPORT_PHONE %>" class="icon-link">📞</a>
+
+<!-- ✅ EMAIL FROM ENV -->
+<a href="mailto:<%= SUPPORT_EMAIL %>" class="icon-link">✉️</a>
+
+<a href="/chats" class="icon-link">💬</a>
+
+</nav>
+</header>
+
+<!-- ✅ TOP MENU -->
+<%- include("partials/top-menu", { client, currentPage: "home" }) %>
+
+<main>
+
+<section>
+<h2>
+Welcome <%= client && client.CLIENT_NAME ? client.CLIENT_NAME : "to Electro-Aid Technologies" %>
+</h2>
+<p>
+At <strong>Electro-Aid Technologies</strong>, we transform ideas into powerful digital solutions and deliver professional writing services that drive innovation, growth, and excellence.
+</p>
+</section>
+
+<section>
+<h2>What We Do</h2>
+<ul>
+<li><strong>Coding Solutions:</strong> Websites, web applications, and mobile apps built to perform and scale.</li>
+<li><strong>Academic Writing:</strong> Expert support in Science, Medicine, Engineering, Mathematics, Essay Writing, Proposal Writing, and more.</li>
+<li><strong>Article Writing:</strong> Engaging content in Technology, Business, Health, Education, Finance, Lifestyle, and more.</li>
+<li>System automation and technical support</li>
+</ul>
+</section>
+
+<section>
+<h2>Why Choose to Work With Us?</h2>
+<ul>
+<li><strong>Expertise You Can Trust</strong></li>
+<li><strong>Tailored Solutions</strong></li>
+<li><strong>Timely Delivery</strong></li>
+<li><strong>Transparent Communication</strong></li>
+<li><strong>Affordable & Reliable</strong></li>
+<li><strong>Innovative Approach</strong></li>
+</ul>
+</section>
+
+</main>
+
+<!-- ✅ FOOTER -->
+<%- include("partials/footer") %>
+
+</body>
+</html>

@@ -1,0 +1,229 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+<title>Admin Completed Assignment Details</title>
+
+<style>
+body{
+font-family:Arial;
+background:#f5f5f5;
+margin:0;
+}
+
+.container{
+max-width:900px;
+margin:auto;
+padding:20px;
+}
+
+.section{
+background:white;
+padding:20px;
+margin-bottom:20px;
+border-radius:6px;
+}
+
+.detail{
+margin-bottom:10px;
+}
+
+.download-btn{
+display:inline-block;
+background:#8B4513;
+color:white;
+padding:10px 16px;
+border-radius:4px;
+text-decoration:none;
+margin-top:10px;
+}
+
+.rating{
+color:#f5b301;
+}
+
+.loading{
+text-align:center;
+padding:30px;
+}
+
+footer{
+position:fixed;
+bottom:0;
+width:100%;
+text-align:center;
+background:#8B4513;
+color:white;
+padding:12px;
+}
+</style>
+</head>
+
+<body>
+
+<!-- ✅ FIXED PARTIAL PATHS -->
+<%- include("partials/header") %>
+<%- include("partials/top-menu") %>
+
+<div class="container">
+
+<div id="loading" class="loading">Loading...</div>
+
+<div id="content" style="display:none;">
+
+<!-- ================= ASSIGNMENT ================= -->
+<div class="section">
+<h2>Assignment</h2>
+
+<div class="detail"><strong>Reference:</strong> <span id="ref"></span></div>
+<div class="detail"><strong>Title:</strong> <span id="title"></span></div>
+<div class="detail"><strong>Subject:</strong> <span id="subject"></span></div>
+<div class="detail"><strong>Client Name:</strong> <span id="client"></span></div>
+<div class="detail"><strong>Completed At:</strong> <span id="completedAt"></span></div>
+
+</div>
+
+<!-- ================= EXPERT ================= -->
+<div class="section">
+<h2>Expert</h2>
+
+<div class="detail"><strong>Name:</strong> <span id="expert"></span></div>
+<div class="detail"><strong>Reg No:</strong> <span id="reg"></span></div>
+<div class="detail"><strong>Email:</strong> <span id="email"></span></div>
+<div class="detail"><strong>Phone:</strong> <span id="phone"></span></div>
+
+</div>
+
+<!-- ================= SUBMISSION ================= -->
+<div class="section">
+<h2>Submission</h2>
+
+<div id="files"></div>
+
+</div>
+
+<!-- ================= FEEDBACK ================= -->
+<div class="section">
+<h2>Client Feedback</h2>
+
+<div class="detail"><strong>Rating:</strong> <span id="rating"></span></div>
+<div class="detail"><strong>Feedback:</strong> <span id="feedback"></span></div>
+
+</div>
+
+</div>
+
+</div>
+
+<footer>
+© 2026 Electro-Aid Technologies
+</footer>
+
+<script>
+
+const ref = new URLSearchParams(window.location.search).get("ref");
+
+function stars(n){
+n = Number(n || 0);
+return "★".repeat(n) + "☆".repeat(5 - n);
+}
+
+async function load(){
+
+const loading = document.getElementById("loading");
+const content = document.getElementById("content");
+
+if(!ref){
+loading.innerText = "Invalid reference";
+return;
+}
+
+try{
+
+const res = await fetch(
+`/admin/assignments/completed/api/${ref}`,
+{ credentials:"include" }
+);
+
+if(!res.ok){
+throw new Error("Failed");
+}
+
+const rows = await res.json();
+
+/* ✅ VALIDATE RESPONSE */
+if(!Array.isArray(rows) || rows.length === 0){
+loading.innerText = "Assignment not found";
+return;
+}
+
+const a = rows[0];
+
+loading.style.display = "none";
+content.style.display = "block";
+
+/* ===== ASSIGNMENT ===== */
+document.getElementById("ref").innerText = a.reference || "-";
+document.getElementById("title").innerText = a.title || "-";
+document.getElementById("subject").innerText = a.subject || "-";
+document.getElementById("client").innerText = a.CLIENT_NAME || "-";
+document.getElementById("completedAt").innerText = a.completedAt || "-";
+
+/* ===== EXPERT ===== */
+document.getElementById("expert").innerText = a.EXPERT_NAME || "-";
+document.getElementById("reg").innerText = a.REG_NO || "-";
+document.getElementById("email").innerText = a.EXPERT_EMAIL || "-";
+document.getElementById("phone").innerText = a.EXPERT_PHONE || "-";
+
+/* ===== FILES ===== */
+const filesContainer = document.getElementById("files");
+filesContainer.innerHTML = "";
+
+const files = rows.filter(r => r.fileUrl);
+
+if(files.length > 0){
+
+files.forEach(f => {
+
+const div = document.createElement("div");
+div.className = "detail";
+
+div.innerHTML = `
+<span>${f.fileName || "File"}</span><br>
+<a href="${f.fileUrl}" class="download-btn" target="_blank">
+Download
+</a>
+`;
+
+filesContainer.appendChild(div);
+
+});
+
+}else{
+
+filesContainer.innerHTML = "<div class='detail'>No files submitted</div>";
+
+}
+
+/* ===== FEEDBACK ===== */
+document.getElementById("rating").innerText = stars(a.rating);
+document.getElementById("feedback").innerText = a.feedback || "No feedback";
+
+}catch(err){
+
+console.error(err);
+loading.innerText = "Failed to load";
+
+}
+
+}
+
+load();
+
+</script>
+
+</body>
+</html>

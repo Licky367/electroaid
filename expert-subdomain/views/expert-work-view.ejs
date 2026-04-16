@@ -1,0 +1,402 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+<title>Expert Work Panel | Electro-Aid Technologies</title>
+
+<style>
+*{box-sizing:border-box;margin:0;padding:0;}
+
+body{
+font-family:Arial,sans-serif;
+background:#8B4513;
+color:#333;
+padding-bottom:140px;
+}
+
+main{
+max-width:750px;
+margin:25px auto;
+padding:0 15px;
+}
+
+section{
+background:white;
+padding:18px;
+margin-bottom:18px;
+border-radius:18px;
+box-shadow:0 4px 12px rgba(0,0,0,0.15);
+}
+
+textarea{
+width:100%;
+padding:10px;
+border-radius:8px;
+border:1px solid #ccc;
+margin-top:10px;
+}
+
+button{
+margin-top:10px;
+padding:10px;
+background:#A0522D;
+color:white;
+border:none;
+border-radius:8px;
+cursor:pointer;
+width:100%;
+}
+
+.comment{
+background:#eee;
+padding:8px;
+border-radius:8px;
+margin-bottom:6px;
+}
+
+.deadline{
+font-weight:bold;
+color:#A0522D;
+}
+</style>
+</head>
+
+<body>
+
+<!-- ✅ HEADER + MENU CONTAINERS -->
+<div id="header-container"></div>
+<div id="top-menu-container"></div>
+
+<!-- ✅ REUSABLE SCRIPTS -->
+<script src="/header/header.js"></script>
+<script src="/header/top-menu.js"></script>
+
+<main>
+
+<section>
+<p><strong>Subject:</strong> <span id="subject"></span></p>
+<p><strong>Title:</strong> <span id="title"></span></p>
+<p><strong>Reference:</strong> <span id="reference"></span></p>
+<p><strong>Status:</strong> <span id="status"></span></p>
+<p><strong>Payout:</strong> $<span id="payout"></span></p>
+
+<p class="deadline">
+<strong>Deadline:</strong> <span id="dueDate"></span>
+</p>
+
+<p><strong>Time Remaining:</strong> <span id="timeRemaining"></span></p>
+<p id="deadlineWarning"></p>
+</section>
+
+<section>
+<h2>Submit Work</h2>
+
+<input type="file" id="fileUpload" multiple>
+<textarea id="submissionText" placeholder="Add explanation of your work"></textarea>
+
+<button id="submitBtn">Submit Assignment</button>
+<button id="editBtn" style="display:none;">Edit Submission</button>
+</section>
+
+<section id="previewSection" style="display:none;">
+<h2>Submission Preview</h2>
+
+<p><strong>Description:</strong></p>
+<div id="previewDescription"></div>
+
+<p><strong>Files:</strong></p>
+<ul id="previewFiles"></ul>
+
+<button id="confirmSubmitBtn">Confirm Submission</button>
+<button id="cancelPreviewBtn">Cancel</button>
+</section>
+
+<section>
+<h2>Comments</h2>
+
+<div id="commentsList"></div>
+
+<textarea id="commentInput" placeholder="Write comment"></textarea>
+<button id="sendCommentBtn">Send Comment</button>
+</section>
+
+</main>
+
+<script>
+
+/* ============================= */
+/* BASE */
+/* ============================= */
+
+const BASE = "/expert/assignments"
+
+const params = new URLSearchParams(window.location.search)
+const reference = params.get("ref")
+
+const AUTOSAVE_KEY = "expert_submission_draft"
+
+let assignment = null
+
+if(!reference){
+alert("Invalid assignment reference")
+window.location.href = `${BASE}/work`
+}
+
+/* ============================= */
+/* TIME */
+/* ============================= */
+
+function getTimeRemaining(date){
+const now = Date.now()
+const due = new Date(date).getTime()
+const diff = due - now
+
+if(diff <= 0) return "Deadline passed"
+
+const days = Math.floor(diff / (1000*60*60*24))
+const hours = Math.floor((diff % (1000*60*60*24)) / (1000*60*60))
+const minutes = Math.floor((diff % (1000*60*60)) / (1000*60))
+const seconds = Math.floor((diff % (1000*60)) / 1000)
+
+return `${days}d ${hours}h ${minutes}m ${seconds}s remaining`
+}
+
+function getDeadlineWarning(date){
+const diff = new Date(date).getTime() - Date.now()
+
+if(diff <= 0) return "❌ Deadline passed"
+
+const hours = diff / (1000*60*60)
+
+if(hours <= 1) return "🚨 Deadline in less than 1 hour"
+if(hours <= 6) return "⚠ Deadline in less than 6 hours"
+if(hours <= 24) return "⚠ Deadline within 24 hours"
+
+return ""
+}
+
+/* ============================= */
+/* LOAD ASSIGNMENT */
+/* ============================= */
+
+async function loadAssignment(){
+try{
+const res = await fetch(`${BASE}/api/assignment?ref=${reference}`,{
+credentials:"include"
+})
+
+if(!res.ok) throw new Error()
+
+assignment = await res.json()
+
+document.getElementById("subject").innerText = assignment.subject
+document.getElementById("title").innerText = assignment.title
+document.getElementById("reference").innerText = assignment.reference
+document.getElementById("status").innerText = assignment.status
+document.getElementById("payout").innerText = assignment.payout
+
+document.getElementById("dueDate").innerText =
+new Date(assignment.dueDate).toLocaleString()
+
+document.getElementById("timeRemaining").innerText =
+getTimeRemaining(assignment.dueDate)
+
+document.getElementById("deadlineWarning").innerText =
+getDeadlineWarning(assignment.dueDate)
+
+loadComments()
+
+const savedDraft = localStorage.getItem(AUTOSAVE_KEY)
+if(savedDraft){
+document.getElementById("submissionText").value = savedDraft
+}
+
+document.getElementById("editBtn").style.display =
+assignment.status === "Revision Requested" ? "block" : "none"
+
+}catch{
+alert("Failed to load assignment")
+}
+}
+
+/* ============================= */
+/* COMMENTS */
+/* ============================= */
+
+async function loadComments(){
+try{
+const res = await fetch(`${BASE}/api/comments?ref=${reference}`,{
+credentials:"include"
+})
+
+if(!res.ok) throw new Error()
+
+const comments = await res.json()
+
+const list = document.getElementById("commentsList")
+list.innerHTML = ""
+
+comments.forEach(c=>{
+const div = document.createElement("div")
+div.className = "comment"
+div.innerHTML = `<strong>${c.isClient ? "Client" : "You"}:</strong> ${c.message}`
+list.appendChild(div)
+})
+
+}catch{
+console.error("Failed to load comments")
+}
+}
+
+document.getElementById("sendCommentBtn").onclick = async function(){
+const message = document.getElementById("commentInput").value.trim()
+if(!message) return
+
+const res = await fetch(`${BASE}/api/comments`,{
+method:"POST",
+headers:{ "Content-Type":"application/json" },
+credentials:"include",
+body:JSON.stringify({ reference, message })
+})
+
+if(!res.ok){
+alert("Failed to send comment")
+return
+}
+
+document.getElementById("commentInput").value=""
+loadComments()
+}
+
+/* ============================= */
+/* PREVIEW */
+/* ============================= */
+
+document.getElementById("submitBtn").onclick = function(){
+const files = document.getElementById("fileUpload").files
+const description = document.getElementById("submissionText").value
+
+if(!files.length && !description){
+alert("Add files or explanation before submitting")
+return
+}
+
+document.getElementById("previewDescription").innerText =
+description || "No description"
+
+const fileList = document.getElementById("previewFiles")
+fileList.innerHTML = ""
+
+for(let f of files){
+const li = document.createElement("li")
+li.innerText = f.name
+fileList.appendChild(li)
+}
+
+document.getElementById("previewSection").style.display = "block"
+}
+
+document.getElementById("cancelPreviewBtn").onclick = function(){
+document.getElementById("previewSection").style.display = "none"
+}
+
+/* ============================= */
+/* SUBMIT */
+/* ============================= */
+
+document.getElementById("confirmSubmitBtn").onclick = async function(){
+
+const files = document.getElementById("fileUpload").files
+const formData = new FormData()
+
+for(let f of files){
+formData.append("submissionFiles", f)
+}
+
+formData.append("reference", reference)
+formData.append("description",
+document.getElementById("submissionText").value)
+
+const res = await fetch(`${BASE}/api/submit-work`,{
+method:"POST",
+credentials:"include",
+body:formData
+})
+
+if(!res.ok){
+alert("Submission failed")
+return
+}
+
+alert("Work submitted successfully")
+
+localStorage.removeItem(AUTOSAVE_KEY)
+document.getElementById("previewSection").style.display = "none"
+
+loadAssignment()
+}
+
+/* ============================= */
+/* EDIT */
+/* ============================= */
+
+document.getElementById("editBtn").onclick = async function(){
+
+const files = document.getElementById("fileUpload").files
+const formData = new FormData()
+
+for(let f of files){
+formData.append("submissionFiles", f)
+}
+
+formData.append("reference", reference)
+formData.append("description",
+document.getElementById("submissionText").value)
+
+const res = await fetch(`${BASE}/api/edit-submission`,{
+method:"POST",
+credentials:"include",
+body:formData
+})
+
+if(!res.ok){
+alert("Update failed")
+return
+}
+
+alert("Submission updated")
+}
+
+/* ============================= */
+/* TIMERS */
+/* ============================= */
+
+setInterval(()=>{
+if(assignment){
+document.getElementById("timeRemaining").innerText =
+getTimeRemaining(assignment.dueDate)
+
+document.getElementById("deadlineWarning").innerText =
+getDeadlineWarning(assignment.dueDate)
+}
+},1000)
+
+/* ============================= */
+/* AUTOSAVE */
+/* ============================= */
+
+setInterval(()=>{
+const text = document.getElementById("submissionText").value
+if(text){
+localStorage.setItem(AUTOSAVE_KEY, text)
+}
+},3000)
+
+loadAssignment()
+
+</script>
+
+</body>
+</html>

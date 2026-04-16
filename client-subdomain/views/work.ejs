@@ -1,0 +1,146 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Work In Progress | Electro-Aid Technologies</title>
+
+<style>
+*{box-sizing:border-box;margin:0;padding:0;}
+
+body{
+font-family:Arial,sans-serif;
+background-color:#8B4513;
+color:#333;
+padding-bottom:100px;
+}
+
+a{text-decoration:none;color:inherit;}
+
+main{
+max-width:800px;
+margin:30px auto;
+padding:20px;
+background-color:#fff;
+border-radius:18px;
+box-shadow:0 4px 12px rgba(0,0,0,0.15);
+}
+
+h2{
+margin-bottom:20px;
+color:#8B4513;
+}
+
+.assignment-item{
+margin-bottom:15px;
+padding:12px;
+border:1px solid #ddd;
+border-radius:10px;
+background-color:#fafafa;
+}
+
+.assignment-title{
+font-weight:bold;
+color:#A0522D;
+}
+
+.assignment-meta{
+font-size:0.9rem;
+margin-top:4px;
+}
+
+.assignment-files{
+margin-top:10px;
+font-size:0.85rem;
+background:#f4f4f4;
+padding:8px;
+border-radius:8px;
+}
+
+.assignment-files a{
+display:block;
+margin-top:5px;
+color:#A0522D;
+text-decoration:underline;
+word-break:break-word;
+}
+
+button{
+margin-top:10px;
+padding:10px 16px;
+background-color:#D2691E;
+color:white;
+border:none;
+border-radius:6px;
+cursor:pointer;
+width:100%;
+}
+
+button:hover{
+background-color:#8B4513;
+}
+</style>
+</head>
+
+<body>
+
+<!-- ✅ REUSABLE HEADER -->
+<%- include("partials/header") %>
+
+<!-- ✅ REUSABLE TOP MENU -->
+<%- include("partials/top-menu", { currentPage: "assignments" }) %>
+
+<main>
+
+<h2>Work In Progress</h2>
+
+<% if (assignments && assignments.length > 0) { %>
+
+  <% assignments.forEach(function(a){ %>
+
+    <div class="assignment-item">
+
+      <div class="assignment-title"><%= a.title %></div>
+
+      <div class="assignment-meta">
+        Reference: <%= a.reference %> |
+        Budget: $<%= a.budget %>
+        <% if (a.arrears && a.arrears > 0) { %>
+          | Arrears: $<%= a.arrears %>
+        <% } %>
+        | Deadline: <%= a.deadline ? new Date(a.deadline).toLocaleString() : "N/A" %>
+      </div>
+
+      <!-- FILES -->
+      <% if (a.files && a.files.length > 0) { %>
+        <div class="assignment-files">
+          <strong>Assignment Files:</strong>
+          <% a.files.forEach(file => { %>
+            <a href="<%= file.fileUrl %>" download>
+              📄 <%= file.fileName || "Download file" %>
+            </a>
+          <% }) %>
+        </div>
+      <% } %>
+
+      <button onclick="window.location.href='/assignments/work/chat?ref=<%= a.reference %>'">
+        View Progress
+      </button>
+
+    </div>
+
+  <% }) %>
+
+<% } else { %>
+
+  <p>No work in progress assignments at the moment.</p>
+
+<% } %>
+
+</main>
+
+<!-- ✅ REUSABLE FOOTER -->
+<%- include("partials/footer") %>
+
+</body>
+</html>

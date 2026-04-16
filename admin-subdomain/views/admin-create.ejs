@@ -1,0 +1,321 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+<title>Create Admin | Electro-Aid Technologies</title>
+
+<style>
+*{box-sizing:border-box;margin:0;padding:0;}
+
+body{
+font-family:Arial,sans-serif;
+background:#8B4513;
+color:#333;
+padding-top:80px;
+padding-bottom:70px;
+}
+
+/* ===== TOP NAV ===== */
+nav{
+position:fixed;
+top:0;
+left:0;
+width:100%;
+background:#A0522D;
+display:flex;
+justify-content:space-around;
+padding:12px;
+z-index:1000;
+box-shadow:0 4px 10px rgba(0,0,0,0.3);
+}
+
+nav a{
+color:white;
+text-decoration:none;
+font-weight:bold;
+}
+
+nav a:hover{
+text-decoration:underline;
+}
+
+/* ===== MAIN ===== */
+main{
+max-width:650px;
+margin:20px auto;
+padding:0 15px;
+}
+
+section{
+background:white;
+padding:25px;
+border-radius:18px;
+box-shadow:0 4px 12px rgba(0,0,0,0.15);
+margin-bottom:30px;
+}
+
+h2{ margin-bottom:20px; color:#8B4513; }
+
+label{
+display:block;
+margin-bottom:6px;
+font-weight:bold;
+}
+
+input,select{
+width:100%;
+padding:10px;
+margin-bottom:15px;
+border:1px solid #ccc;
+border-radius:6px;
+}
+
+button{
+background:#D2691E;
+color:white;
+border:none;
+padding:10px 18px;
+border-radius:6px;
+cursor:pointer;
+}
+
+button:hover{ background:#a65218; }
+
+button:disabled{
+opacity:0.6;
+cursor:not-allowed;
+}
+
+.success{
+margin-top:15px;
+color:green;
+font-weight:bold;
+display:none;
+}
+
+.error{
+margin-top:15px;
+color:red;
+font-weight:bold;
+display:none;
+}
+
+footer{
+position:fixed;
+bottom:0;
+left:0;
+width:100%;
+background:#A0522D;
+text-align:center;
+color:white;
+padding:12px;
+border-top-left-radius:25px;
+border-top-right-radius:25px;
+}
+</style>
+
+</head>
+
+<body>
+
+<!-- ===== NAVIGATION ===== -->
+<nav>
+<a href="/admin">Home</a>
+<a href="/admin/assignments">Assignments</a>
+<a href="/admin/profile">Profile</a>
+<a href="/admin/auth/logout">Logout</a>
+</nav>
+
+<main>
+
+<!-- ================= CREATE ADMIN ================= -->
+<section>
+
+<h2>Create New Admin</h2>
+
+<form id="ADMIN_CREATE_FORM">
+
+<input type="hidden" id="csrfToken" name="_csrf" value="<%= csrfToken %>">
+
+<label>Admin Email</label>
+<input type="email" id="ADMIN_CREATE_EMAIL" required>
+
+<label>Select Admin Role</label>
+<select id="ADMIN_CREATE_ROLE" required>
+<option value="">Select Role</option>
+<option value="FINANCIAL_ADMIN">Financial Admin</option>
+<option value="OPERATIONS_ADMIN">Operations Admin</option>
+<option value="OPERATIONAL_ADMIN">Operational Admin</option>
+</select>
+
+<button type="submit">Create Admin</button>
+
+</form>
+
+<div id="ADMIN_CREATE_SUCCESS" class="success">
+Admin created successfully.
+</div>
+
+<div id="ADMIN_CREATE_ERROR" class="error"></div>
+
+</section>
+
+<!-- ================= UPDATE ROLE ================= -->
+<section>
+
+<h2>Change Admin Role</h2>
+
+<form id="ADMIN_UPDATE_ROLE_FORM">
+
+<label>Admin Email</label>
+<input type="email" id="ADMIN_UPDATE_EMAIL" required>
+
+<label>New Role</label>
+<select id="ADMIN_UPDATE_ROLE" required>
+<option value="">Select Role</option>
+<option value="FINANCIAL_ADMIN">Financial Admin</option>
+<option value="OPERATIONS_ADMIN">Operations Admin</option>
+<option value="OPERATIONAL_ADMIN">Operational Admin</option>
+</select>
+
+<button type="submit">Update Role</button>
+
+</form>
+
+<div id="ADMIN_UPDATE_SUCCESS" class="success">
+Admin role updated successfully.
+</div>
+
+<div id="ADMIN_UPDATE_ERROR" class="error"></div>
+
+</section>
+
+</main>
+
+<footer>
+&copy; 2026 Electro-Aid Technologies
+</footer>
+
+<script>
+
+/* CONSTANTS */
+const csrfToken = document.getElementById("csrfToken").value
+
+const ADMIN_CREATE_FORM = document.getElementById("ADMIN_CREATE_FORM")
+const ADMIN_CREATE_EMAIL = document.getElementById("ADMIN_CREATE_EMAIL")
+const ADMIN_CREATE_ROLE = document.getElementById("ADMIN_CREATE_ROLE")
+
+const ADMIN_UPDATE_ROLE_FORM = document.getElementById("ADMIN_UPDATE_ROLE_FORM")
+const ADMIN_UPDATE_EMAIL = document.getElementById("ADMIN_UPDATE_EMAIL")
+const ADMIN_UPDATE_ROLE = document.getElementById("ADMIN_UPDATE_ROLE")
+
+const ADMIN_CREATE_SUCCESS = document.getElementById("ADMIN_CREATE_SUCCESS")
+const ADMIN_CREATE_ERROR = document.getElementById("ADMIN_CREATE_ERROR")
+
+const ADMIN_UPDATE_SUCCESS = document.getElementById("ADMIN_UPDATE_SUCCESS")
+const ADMIN_UPDATE_ERROR = document.getElementById("ADMIN_UPDATE_ERROR")
+
+/* APIs */
+const ADMIN_CREATE_API = "/admin/create/create-admin"
+const ADMIN_UPDATE_ROLE_API = "/admin/create/update-admin-role"
+
+/* CREATE ADMIN */
+ADMIN_CREATE_FORM.addEventListener("submit", async function(e){
+
+e.preventDefault()
+
+ADMIN_CREATE_SUCCESS.style.display = "none"
+ADMIN_CREATE_ERROR.style.display = "none"
+
+const btn = ADMIN_CREATE_FORM.querySelector("button")
+btn.disabled = true
+
+try{
+
+const res = await fetch(ADMIN_CREATE_API,{
+method:"POST",
+headers:{
+"Content-Type":"application/json",
+"csrf-token": csrfToken
+},
+credentials:"include",
+body:JSON.stringify({
+ADMIN_EMAIL: ADMIN_CREATE_EMAIL.value.trim().toLowerCase(),
+role: ADMIN_CREATE_ROLE.value
+})
+})
+
+const data = await res.json()
+
+if(!res.ok){
+ADMIN_CREATE_ERROR.innerText = data.message || "Failed to create admin"
+ADMIN_CREATE_ERROR.style.display = "block"
+btn.disabled = false
+return
+}
+
+ADMIN_CREATE_SUCCESS.style.display = "block"
+ADMIN_CREATE_FORM.reset()
+
+}catch(err){
+ADMIN_CREATE_ERROR.innerText = "Server error"
+ADMIN_CREATE_ERROR.style.display = "block"
+}
+
+btn.disabled = false
+
+})
+
+/* UPDATE ROLE */
+ADMIN_UPDATE_ROLE_FORM.addEventListener("submit", async function(e){
+
+e.preventDefault()
+
+ADMIN_UPDATE_SUCCESS.style.display = "none"
+ADMIN_UPDATE_ERROR.style.display = "none"
+
+const btn = ADMIN_UPDATE_ROLE_FORM.querySelector("button")
+btn.disabled = true
+
+try{
+
+const res = await fetch(ADMIN_UPDATE_ROLE_API,{
+method:"PUT",
+headers:{
+"Content-Type":"application/json",
+"csrf-token": csrfToken
+},
+credentials:"include",
+body:JSON.stringify({
+ADMIN_EMAIL: ADMIN_UPDATE_EMAIL.value.trim().toLowerCase(),
+role: ADMIN_UPDATE_ROLE.value
+})
+})
+
+const data = await res.json()
+
+if(!res.ok){
+ADMIN_UPDATE_ERROR.innerText = data.message || "Failed to update role"
+ADMIN_UPDATE_ERROR.style.display = "block"
+btn.disabled = false
+return
+}
+
+ADMIN_UPDATE_SUCCESS.style.display = "block"
+ADMIN_UPDATE_ROLE_FORM.reset()
+
+}catch(err){
+ADMIN_UPDATE_ERROR.innerText = "Server error"
+ADMIN_UPDATE_ERROR.style.display = "block"
+}
+
+btn.disabled = false
+
+})
+
+</script>
+
+</body>
+</html>

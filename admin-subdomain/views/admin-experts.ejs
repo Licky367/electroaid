@@ -1,0 +1,242 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Admin | Expert Management</title>
+
+<style>
+*{ box-sizing:border-box; margin:0; padding:0; }
+
+body{
+font-family:Arial,sans-serif;
+background:#8B4513;
+color:#333;
+padding-top:110px;
+padding-bottom:90px;
+}
+
+main{
+max-width:950px;
+margin:25px auto;
+padding:0 15px;
+}
+
+section{
+background:white;
+padding:20px;
+border-radius:18px;
+box-shadow:0 4px 12px rgba(0,0,0,0.15);
+}
+
+h2{
+margin-bottom:15px;
+color:#8B4513;
+}
+
+/* SEARCH */
+.search-bar{
+margin-bottom:15px;
+display:flex;
+gap:10px;
+}
+
+.search-bar input{
+flex:1;
+padding:10px;
+border-radius:8px;
+border:1px solid #ccc;
+}
+
+.search-bar button{
+background:#D2691E;
+color:white;
+border:none;
+padding:10px 15px;
+border-radius:8px;
+cursor:pointer;
+}
+
+/* CARD */
+.expert-card{
+border:1px solid #ddd;
+border-radius:12px;
+padding:15px;
+margin-bottom:12px;
+background:#fafafa;
+}
+
+.expert-name{
+font-weight:bold;
+font-size:1.1rem;
+color:#A0522D;
+}
+
+.status{
+margin-top:4px;
+font-size:0.85rem;
+}
+
+.status.active{ color:green; }
+.status.suspended{ color:red; font-weight:bold; }
+
+.actions{
+margin-top:10px;
+display:flex;
+gap:8px;
+flex-wrap:wrap;
+}
+
+button{
+padding:6px 12px;
+border:none;
+border-radius:6px;
+cursor:pointer;
+font-size:0.85rem;
+}
+
+.view-btn{
+background:#D2691E;
+color:white;
+padding:6px 12px;
+border-radius:6px;
+text-decoration:none;
+display:inline-block;
+font-size:0.85rem;
+}
+
+.suspend-btn{background:#ff9800;color:white;}
+.unsuspend-btn{background:#4CAF50;color:white;}
+.delete-btn{background:#e53935;color:white;}
+
+.pagination{
+margin-top:15px;
+display:flex;
+justify-content:center;
+gap:10px;
+}
+
+.pagination a{
+background:#A0522D;
+color:white;
+padding:8px 12px;
+border-radius:6px;
+text-decoration:none;
+}
+
+footer{
+position:fixed;
+bottom:0;
+width:100%;
+text-align:center;
+padding:12px;
+background:#A0522D;
+color:#fff;
+border-top-left-radius:25px;
+border-top-right-radius:25px;
+}
+</style>
+</head>
+
+<body>
+
+<!-- ✅ HEADER -->
+<%- include("partials/header") %>
+
+<!-- ✅ TOP MENU -->
+<%- include("partials/top-menu", { admin }) %>
+
+<main>
+
+<section>
+
+<h2>All Experts</h2>
+
+<!-- SEARCH -->
+<form class="search-bar" method="GET" action="/admin/experts">
+<input 
+  type="text" 
+  name="search" 
+  value="<%= search || '' %>" 
+  placeholder="Search by REG_NO, Name or Email">
+<button type="submit">Search</button>
+</form>
+
+<div>
+
+<% if(!experts || experts.length === 0){ %>
+<p style="text-align:center;">No experts found.</p>
+<% } %>
+
+<% (experts || []).forEach(expert => { %>
+
+<div class="expert-card">
+
+<div class="expert-name">
+<%= expert.EXPERT_NAME || '' %>
+</div>
+
+<div>REG_NO: <%= expert.REG_NO || '' %></div>
+<div>Email: <%= expert.EXPERT_EMAIL || '' %></div>
+
+<div>Status: 
+<span class="status <%= expert.status === 'suspended' ? 'suspended' : 'active' %>">
+<%= expert.status || '' %>
+</span>
+</div>
+
+<div class="actions">
+
+<!-- PROFILE -->
+<a href="/admin/experts/profile/<%= expert.id %>" class="view-btn">
+Profile
+</a>
+
+<!-- SUSPEND / UNSUSPEND -->
+<% if(expert.status !== 'suspended'){ %>
+<form method="POST" action="/admin/experts/suspend/<%= expert.id %>">
+<button class="suspend-btn">Suspend</button>
+</form>
+<% } else { %>
+<form method="POST" action="/admin/experts/unsuspend/<%= expert.id %>">
+<button class="unsuspend-btn">Unsuspend</button>
+</form>
+<% } %>
+
+<!-- DELETE -->
+<form method="POST" action="/admin/experts/delete/<%= expert.id %>" 
+onsubmit="return confirm('Delete this expert permanently?')">
+<button class="delete-btn">Delete</button>
+</form>
+
+</div>
+
+</div>
+
+<% }) %>
+
+</div>
+
+<!-- PAGINATION -->
+<div class="pagination">
+
+<% if(page > 1){ %>
+<a href="/admin/experts?page=<%= page - 1 %>&search=<%= search %>">Previous</a>
+<% } %>
+
+<% if(experts && experts.length === 10){ %>
+<a href="/admin/experts?page=<%= page + 1 %>&search=<%= search %>">Next</a>
+<% } %>
+
+</div>
+
+</section>
+
+</main>
+
+<footer>
+© <%= new Date().getFullYear() %> Electro-Aid Technologies
+</footer>
+
+</body>
+</html>

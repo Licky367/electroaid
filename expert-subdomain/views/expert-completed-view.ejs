@@ -1,0 +1,136 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Assignment View | Electro-Aid Technologies</title>
+
+<style>
+*{box-sizing:border-box;margin:0;padding:0;}
+body{ font-family:Arial,sans-serif; background:#8B4513; color:#333; padding-bottom:140px; }
+header{ position:sticky; top:0; background:#A0522D; text-align:center; padding:10px; border-bottom-left-radius:25px; border-bottom-right-radius:25px; color:white; }
+.top-menu{ position:sticky; top:95px; background:#D2691E; display:flex; justify-content:space-around; padding:8px 0; }
+.top-menu a{ color:white; text-decoration:none; font-size:0.9rem; }
+main{ max-width:750px; margin:25px auto; padding:0 15px; }
+section{ background:white; padding:18px; margin-bottom:18px; border-radius:18px; box-shadow:0 4px 12px rgba(0,0,0,0.15); }
+h2{ color:#8B4513; margin-bottom:10px; }
+ul{ padding-left:20px; }
+li{ margin-bottom:6px; }
+.stars span{ font-size:1.8rem; color:#ccc; }
+.stars .active{ color:gold; }
+footer{ position:fixed; bottom:0; left:0; width:100%; background:#A0522D; color:white; text-align:center; padding:12px; border-top-left-radius:25px; border-top-right-radius:25px; }
+</style>
+</head>
+
+<body>
+
+<header>
+<h1>Electro-Aid Technologies</h1>
+<p>Assignment View Panel</p>
+</header>
+
+<!-- ✅ FIXED ROUTES -->
+<div class="top-menu">
+<a href="/expert">Home</a>
+<a href="/expert/assignments/work">Work</a>
+<a href="/expert/profile">Profile</a>
+</div>
+
+<main>
+
+<!-- ASSIGNMENT DETAILS -->
+<section>
+<h2>Assignment Details</h2>
+
+<p><strong>Reference:</strong> <%= assignment.reference %></p>
+<p><strong>Subject:</strong> <%= assignment.subject %></p>
+<p><strong>Title:</strong> <%= assignment.title %></p>
+<p><strong>Status:</strong> <%= assignment.status %></p>
+<p><strong>Deadline:</strong> <%= assignment.dueDate %></p>
+<p><strong>Submitted:</strong> <span id="submittedTime"></span></p>
+
+</section>
+
+<!-- CLIENT DETAILS -->
+<section>
+<h2>Client Details</h2>
+<p><strong>Client Name:</strong> <%= assignment.CLIENT_NAME %></p>
+</section>
+
+<!-- SUBMISSION -->
+<section>
+<h2>Submitted Work</h2>
+
+<% if (submissionFiles.length) { %>
+<ul>
+<% submissionFiles.forEach(file => { %>
+<li>
+<a href="<%= file.fileUrl %>" download>
+<%= file.fileName %>
+</a>
+</li>
+<% }) %>
+</ul>
+<% } %>
+
+<% if (submissionText) { %>
+<p><strong>Additional Text:</strong> <%= submissionText %></p>
+<% } %>
+
+</section>
+
+<!-- FEEDBACK -->
+<section>
+<h2>Feedback</h2>
+
+<div class="stars">
+<% for(let i=1; i<=5; i++){ %>
+<span class="<%= i <= (assignment.rating || 0) ? 'active' : '' %>">★</span>
+<% } %>
+</div>
+
+<p><strong>Feedback:</strong></p>
+<p><%= assignment.feedback || "No feedback provided" %></p>
+
+</section>
+
+</main>
+
+<footer>© 2026 Electro-Aid Technologies</footer>
+
+<script>
+(function(){
+
+    const due = new Date("<%= assignment.dueDate %>").getTime();
+    const submittedRaw = "<%= submissionDate || '' %>";
+
+    if(!submittedRaw){
+        document.getElementById("submittedTime").innerText = "No submission date";
+        return;
+    }
+
+    const submitted = new Date(submittedRaw).getTime();
+    const diffMs = submitted - due;
+
+    let text = "";
+
+    if(diffMs === 0){
+        text = "Submitted on time";
+    }else{
+
+        const diffDays = Math.floor(Math.abs(diffMs)/(1000*60*60*24));
+        const diffHours = Math.floor((Math.abs(diffMs)%(1000*60*60*24))/(1000*60*60));
+        const diffMinutes = Math.floor((Math.abs(diffMs)%(1000*60*60))/(1000*60));
+
+        const beforeAfter = diffMs < 0 ? "before" : "after";
+
+        text = `Submitted ${diffDays}d ${diffHours}h ${diffMinutes}m ${beforeAfter} deadline`;
+    }
+
+    document.getElementById("submittedTime").innerText = text;
+
+})();
+</script>
+
+</body>
+</html>

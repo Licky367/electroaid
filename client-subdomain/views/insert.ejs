@@ -1,0 +1,106 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+<title>Insert Assignment | Electro-Aid Technologies</title>
+
+<style>
+* { box-sizing:border-box; margin:0; padding:0; }
+
+body {
+    font-family:Arial,sans-serif;
+    background:#8B4513;
+    color:#333;
+    padding-bottom:70px;
+}
+
+a { text-decoration:none; color:inherit; }
+
+/* MAIN */
+main {
+    max-width:750px;
+    margin:30px auto;
+    padding:0 15px;
+}
+
+section {
+    background:#fff;
+    padding:25px;
+    margin-bottom:20px;
+    border-radius:18px;
+    box-shadow:0 4px 12px rgba(0,0,0,0.15);
+}
+
+section h2 { margin-bottom:15px; font-size:1.6rem; color:#8B4513; }
+section p { margin-bottom:20px; font-size:1.05rem; }
+
+section ul { list-style:none; }
+
+section ul li {
+    background:#F5DEB3;
+    margin-bottom:15px;
+    padding:18px;
+    border-radius:12px;
+    transition:0.25s ease;
+}
+
+section ul li:hover {
+    background:#D2A679;
+    transform:translateY(-3px);
+}
+
+section ul li a {
+    display:block;
+    width:100%;
+    font-weight:bold;
+    font-size:1.05rem;
+    color:#333;
+}
+</style>
+</head>
+
+<body>
+
+<!-- ✅ REUSABLE HEADER -->
+<%- include("partials/header") %>
+
+<!-- ✅ REUSABLE TOP MENU -->
+<%- include("partials/top-menu", { currentPage: "assignments" }) %>
+
+<main>
+<section>
+<h2>Insert Assignment</h2>
+<p>Select the type of assignment you want to create:</p>
+
+<ul>
+
+<li>
+<a href="/assignments/insert/coding">
+💻 Computer Programming (Coding)
+</a>
+</li>
+
+<li>
+<a href="/assignments/insert/academic">
+📚 Academic Writing
+</a>
+</li>
+
+<li>
+<a href="/assignments/insert/article">
+📰 Article Writing
+</a>
+</li>
+
+</ul>
+
+</section>
+</main>
+
+<!-- ✅ REUSABLE FOOTER -->
+<%- include("partials/footer") %>
+
+</body>
+</html>

@@ -1,0 +1,226 @@
+<!-- ✅ FONT AWESOME -->
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css">
+
+<style>
+.top-nav{
+    position:fixed;
+    top:52px;
+    left:0;
+    width:100%;
+    background:#8B4513;
+    display:flex;
+    justify-content:space-between;
+    align-items:center;
+    padding:10px;
+    z-index:999;
+}
+
+.top-nav a{
+    color:white;
+    text-decoration:none;
+    font-weight:bold;
+    font-size:14px;
+}
+
+.top-nav a:hover{
+    text-decoration:underline;
+}
+
+.nav-left{
+    display:flex;
+    align-items:center;
+    gap:15px;
+}
+
+.nav-right{
+    display:flex;
+    align-items:center;
+    gap:10px;
+}
+
+.nav-avatar{
+    width:28px;
+    height:28px;
+    border-radius:50%;
+    object-fit:cover;
+}
+
+/* ✅ MENU ICON */
+.menu-icon{
+    font-size:20px;
+    cursor:pointer;
+    color:white;
+}
+
+/* ✅ SIDEBAR */
+.sidebar{
+    position:fixed;
+    top:0;
+    left:-260px;
+    width:260px;
+    height:100%;
+    background:#8B4513;
+    padding:20px;
+    transition:0.3s ease;
+    z-index:1000;
+    overflow-y:auto;
+}
+
+.sidebar.active{
+    left:0;
+}
+
+.sidebar a{
+    display:flex;
+    align-items:center;
+    gap:10px;
+    color:white;
+    text-decoration:none;
+    margin:10px 0;
+    font-weight:bold;
+}
+
+/* ✅ ACTIVE LINK */
+.sidebar a.active{
+    background:white;
+    color:#8B4513;
+    padding:6px;
+    border-radius:5px;
+}
+
+/* ✅ DROPDOWN */
+.dropdown{
+    cursor:pointer;
+    margin-top:15px;
+    color:white;
+    font-weight:bold;
+    display:flex;
+    align-items:center;
+    justify-content:space-between;
+}
+
+.dropdown-content{
+    display:none;
+    margin-left:10px;
+}
+
+.dropdown-content a{
+    font-weight:normal;
+    font-size:13px;
+}
+
+/* ✅ OVERLAY */
+.overlay{
+    position:fixed;
+    top:0;
+    left:0;
+    width:100%;
+    height:100%;
+    background:rgba(0,0,0,0.4);
+    display:none;
+    z-index:900;
+}
+
+.overlay.active{
+    display:block;
+}
+</style>
+
+<!-- ✅ SIDEBAR -->
+<div id="sidebar" class="sidebar">
+
+    <a href="/admin"><i class="fa fa-home"></i> Home</a>
+
+    <!-- Financials -->
+    <div class="dropdown" onclick="toggleDropdown('financials')">
+        <span><i class="fa fa-coins"></i> Financials</span>
+        <i class="fa fa-chevron-down"></i>
+    </div>
+    <div id="financials" class="dropdown-content">
+        <a href="/admin/payment-methods">Payment Methods</a>
+        <a href="/admin/payout-management">Payout Management</a>
+        <a href="/admin/invoice">Invoice</a>
+        <a href="/admin/invoice-history">Invoice History</a>
+        <a href="/admin/stats">Stats</a>
+    </div>
+
+    <!-- Accounts -->
+    <div class="dropdown" onclick="toggleDropdown('accounts')">
+        <span><i class="fa fa-users"></i> Accounts</span>
+        <i class="fa fa-chevron-down"></i>
+    </div>
+    <div id="accounts" class="dropdown-content">
+        <a href="/admin/create">Create</a>
+        <a href="/admin/management">Management</a>
+        <a href="/admin/experts">Experts</a>
+        <a href="/admin/clients">Clients</a>
+    </div>
+
+</div>
+
+<!-- ✅ OVERLAY -->
+<div id="overlay" class="overlay" onclick="closeSidebar()"></div>
+
+<!-- ✅ TOP NAV -->
+<nav class="top-nav">
+
+    <div class="nav-left">
+        <span class="menu-icon" onclick="openSidebar()">
+            <i class="fa fa-bars"></i>
+        </span>
+
+        <a href="/admin/assignments">Assignments</a>
+        <a href="/admin/profile">Profile</a>
+    </div>
+
+    <div class="nav-right">
+        <span style="color:white;">
+            <%= admin.ADMIN_NAME %>
+        </span>
+
+        <img class="nav-avatar"
+        src="<%= admin.ADMIN_PROFILE_IMAGE ? admin.ADMIN_PROFILE_IMAGE : 'https://cdn-icons-png.flaticon.com/512/149/149071.png' %>">
+
+        <a href="/admin/auth/logout">Logout</a>
+    </div>
+
+</nav>
+
+<!-- ✅ SCRIPT -->
+<script>
+// Open / Close Sidebar
+function openSidebar(){
+    document.getElementById('sidebar').classList.add('active');
+    document.getElementById('overlay').classList.add('active');
+}
+
+function closeSidebar(){
+    document.getElementById('sidebar').classList.remove('active');
+    document.getElementById('overlay').classList.remove('active');
+}
+
+// Toggle dropdowns
+function toggleDropdown(id){
+    let el = document.getElementById(id);
+    el.style.display = (el.style.display === "block") ? "none" : "block";
+}
+
+// ✅ ACTIVE LINK HIGHLIGHT
+const links = document.querySelectorAll('.sidebar a');
+const currentPath = window.location.pathname;
+
+links.forEach(link => {
+    if(link.getAttribute('href') === currentPath){
+        link.classList.add('active');
+
+        // auto open parent dropdown if inside one
+        let parent = link.parentElement;
+        if(parent.classList.contains('dropdown-content')){
+            parent.style.display = "block";
+        }
+    }
+
+    // ✅ AUTO CLOSE ON CLICK (MOBILE UX)
+    link.addEventListener('click', closeSidebar);
+});
+</script>

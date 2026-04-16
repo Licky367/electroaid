@@ -1,0 +1,240 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Profile | Electro-Aid</title>
+
+<style>
+*{box-sizing:border-box;margin:0;padding:0;}
+
+body{
+    font-family:Arial,sans-serif;
+    background-color:#8B4513;
+    color:#333;
+    line-height:1.6;
+    padding-bottom:100px;
+}
+
+a{text-decoration:none;color:inherit;}
+
+main{
+    max-width:750px;
+    margin:25px auto;
+    padding:0 15px;
+}
+
+.profile-card{
+    background:#fff;
+    padding:20px;
+    border-radius:18px;
+    box-shadow:0 4px 12px rgba(0,0,0,0.15);
+    text-align:center;
+}
+
+.profile-card h2{
+    margin-bottom:15px;
+    color:#8B4513;
+}
+
+.profile-image{
+    width:120px;
+    height:120px;
+    border-radius:50%;
+    object-fit:cover;
+    margin-bottom:15px;
+    border:3px solid #A0522D;
+    cursor:pointer;
+}
+
+.profile-info{margin-bottom:10px;}
+
+.profile-info strong{
+    display:inline-block;
+    width:120px;
+}
+
+.button-group{
+    margin-top:15px;
+    display:flex;
+    gap:10px;
+    justify-content:center;
+    flex-wrap:wrap;
+}
+
+.action-btn{
+    padding:10px 20px;
+    border:none;
+    border-radius:6px;
+    background-color:#A0522D;
+    color:white;
+    cursor:pointer;
+}
+
+.action-btn:hover{background-color:#8B4513;}
+
+.logout-btn{background-color:#444;}
+.logout-btn:hover{background-color:#222;}
+
+/* MODAL */
+.hidden{display:none;}
+
+#CLIENT_PROFILE_IMAGE_MODAL{
+    position:fixed;
+    top:0;
+    left:0;
+    width:100%;
+    height:100%;
+    background:rgba(0,0,0,0.5);
+    display:flex;
+    align-items:center;
+    justify-content:center;
+    z-index:2000;
+}
+
+#CLIENT_PROFILE_IMAGE_MODAL div{
+    background:#fff;
+    padding:20px;
+    border-radius:12px;
+    text-align:center;
+    max-width:300px;
+    width:90%;
+}
+
+#CLIENT_PROFILE_IMAGE_MODAL img{
+    width:100%;
+    border-radius:12px;
+    margin-bottom:15px;
+}
+
+.modal-btn{flex:1;margin:0 5px;}
+</style>
+</head>
+
+<body>
+
+<!-- ✅ REUSABLE HEADER -->
+<%- include("partials/header") %>
+
+<!-- ✅ REUSABLE TOP MENU -->
+<%- include("partials/top-menu", { currentPage: "profile" }) %>
+
+<main>
+
+<section>
+
+<div class="profile-card">
+
+<h2>Your Profile</h2>
+
+<!-- IMAGE -->
+<img id="CLIENT_PROFILE_IMAGE"
+class="profile-image"
+src="<%= client.CLIENT_PROFILE_IMAGE || 'https://cdn-icons-png.flaticon.com/512/1077/1077012.png' %>">
+
+<input type="file" id="CLIENT_PROFILE_IMAGE_INPUT" accept="image/*" style="display:none;">
+
+<!-- MODAL -->
+<div id="CLIENT_PROFILE_IMAGE_MODAL" class="hidden">
+<div>
+<img id="CLIENT_PROFILE_IMAGE_LARGE" src="">
+<div style="display:flex;justify-content:space-between;">
+<button class="action-btn modal-btn" onclick="CLIENT_VIEW_IMAGE_CLOSE()">Close</button>
+<button class="action-btn modal-btn" onclick="CLIENT_TRIGGER_CHANGE_IMAGE()">Change</button>
+</div>
+</div>
+</div>
+
+<div class="profile-info">
+<strong>Full Name:</strong>
+<span><%= client.CLIENT_NAME %></span>
+</div>
+
+<div class="profile-info">
+<strong>Email:</strong>
+<span><%= client.CLIENT_EMAIL %></span>
+</div>
+
+<div class="profile-info">
+<strong>Phone:</strong>
+<span><%= client.CLIENT_PHONE_NUMBER %></span>
+</div>
+
+<div class="profile-info">
+<strong>Status:</strong>
+<span><%= client.status %></span>
+</div>
+
+<div class="profile-info">
+<strong>Member Since:</strong>
+<span><%= new Date(client.createdAt).toLocaleDateString() %></span>
+</div>
+
+<div class="button-group">
+
+<button class="action-btn" onclick="window.location.href='/profile/edit'">
+Edit Profile
+</button>
+
+<button class="action-btn" onclick="window.location.href='/profile/change-password'">
+Change Password
+</button>
+
+<form method="POST" action="/auth/logout">
+<button class="action-btn logout-btn" type="submit">
+Logout
+</button>
+</form>
+
+</div>
+
+</div>
+
+</section>
+
+</main>
+
+<!-- ✅ REUSABLE FOOTER -->
+<%- include("partials/footer") %>
+
+<script>
+
+/* IMAGE LOGIC */
+const input = document.getElementById("CLIENT_PROFILE_IMAGE_INPUT")
+const modal = document.getElementById("CLIENT_PROFILE_IMAGE_MODAL")
+const large = document.getElementById("CLIENT_PROFILE_IMAGE_LARGE")
+const img = document.getElementById("CLIENT_PROFILE_IMAGE")
+
+img.onclick = () => {
+if(!img.src.includes("1077012.png")){
+large.src = img.src
+modal.classList.remove("hidden")
+}else{
+input.click()
+}
+}
+
+function CLIENT_VIEW_IMAGE_CLOSE(){
+modal.classList.add("hidden")
+}
+
+function CLIENT_TRIGGER_CHANGE_IMAGE(){
+input.click()
+}
+
+input.onchange = function(){
+const file = this.files[0]
+if(file){
+const reader = new FileReader()
+reader.onload = e => {
+img.src = e.target.result
+large.src = e.target.result
+}
+reader.readAsDataURL(file)
+}
+}
+
+</script>
+
+</body>
+</html>

@@ -1,0 +1,199 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Initiate Assignment | Electro-Aid Technologies</title>
+
+<style>
+*{box-sizing:border-box;margin:0;padding:0;}
+
+body{
+  font-family:Arial,sans-serif;
+  background-color:#8B4513;
+  color:#333;
+  padding-bottom:100px;
+}
+
+a{text-decoration:none;color:inherit;}
+
+main{
+  max-width:750px;
+  margin:30px auto;
+  padding:20px;
+  background-color:#fff;
+  border-radius:18px;
+  box-shadow:0 4px 12px rgba(0,0,0,0.15);
+}
+
+h2{margin-bottom:15px;color:#8B4513;}
+h3{margin-bottom:15px;}
+
+hr{margin:20px 0;}
+
+button{
+  padding:10px 16px;
+  background-color:#D2691E;
+  color:white;
+  border:none;
+  border-radius:6px;
+  cursor:pointer;
+  width:100%;
+}
+
+button:hover{background-color:#8B4513;}
+
+button:disabled{
+  background-color:#aaa;
+  cursor:not-allowed;
+}
+
+.option{margin-bottom:25px;}
+
+.countdown{
+  color:#B22222;
+  font-weight:bold;
+}
+</style>
+</head>
+
+<body>
+
+<!-- ✅ REUSABLE HEADER -->
+<%- include("partials/header") %>
+
+<!-- ✅ REUSABLE TOP MENU -->
+<%- include("partials/top-menu", { currentPage: "assignments" }) %>
+
+<main>
+
+<h2>Assignment Summary</h2>
+
+<p><strong>Reference Code:</strong> <%= reference %></p>
+<p><strong>Title:</strong> <%= title %></p>
+<p><strong>Budget:</strong> $<%= budget %></p>
+
+<p><strong>Deadline:</strong> <span id="deadlineDisplay"></span></p>
+
+<p class="countdown"><strong>Time Remaining:</strong> <span id="timeRemaining"></span></p>
+
+<hr>
+
+<h3>Select payment option to initiate work in progress</h3>
+
+<!-- Deposit -->
+<div class="option">
+<p>1. Pay Deposit ($<%= depositAmount %>)</p>
+<button onclick="redirectPay(PAYMENT_TYPE.DEPOSIT)">
+Pay Deposit ($<%= depositAmount %>)
+</button>
+</div>
+
+<!-- Full -->
+<div class="option">
+<p>2. Pay Full ($<%= budget %>)</p>
+<button onclick="redirectPay(PAYMENT_TYPE.FULL)">
+Pay Full ($<%= budget %>)
+</button>
+</div>
+
+<!-- Pay After -->
+<div class="option">
+<p>3. Pay After Service</p>
+<button id="payAfterBtn" onclick="payAfterService()" disabled>
+Locked
+</button>
+<p style="font-size:12px;margin-top:5px;">
+(Locked by default. Admin may unlock for eligible clients.)
+</p>
+</div>
+
+</main>
+
+<!-- ✅ REUSABLE FOOTER -->
+<%- include("partials/footer") %>
+
+<script>
+
+/* ================= CONSTANTS ================= */
+const reference = "<%= reference %>";
+const deadline = "<%= deadline %>";
+const depositAmount = Number("<%= depositAmount %>");
+const PayAfterServiceUnlocked = "<%= payAfterServiceUnlocked ? 'true' : 'false' %>" === "true";
+const csrfToken = "<%= csrfToken %>";
+
+/* ================= PAYMENT TYPES ================= */
+const PAYMENT_TYPE = { DEPOSIT:"deposit", FULL:"full" };
+
+/* ================= DISPLAY DEADLINE ================= */
+const deadlineDate = new Date(deadline);
+document.getElementById("deadlineDisplay").innerText = deadlineDate.toLocaleString();
+
+/* ================= COUNTDOWN ================= */
+function startCountdown(dateStr){
+    const el = document.getElementById("timeRemaining");
+    const due = new Date(dateStr).getTime();
+
+    function update(){
+        const now = new Date().getTime();
+        const diff = due - now;
+        if(diff <= 0){
+            el.innerText = "Expired";
+            return;
+        }
+        const d = Math.floor(diff/(1000*60*60*24));
+        const h = Math.floor((diff%(1000*60*60*24))/(1000*60*60));
+        const m = Math.floor((diff%(1000*60*60))/(1000*60));
+        const s = Math.floor((diff%(1000*60))/1000);
+        el.innerText = `${d}d ${h}h ${m}m ${s}s`;
+    }
+
+    update();
+    setInterval(update,1000);
+}
+startCountdown(deadline);
+
+/* ================= REDIRECT TO PAYMENT ================= */
+function redirectPay(type){
+    window.location.href = `/assignments/pay?reference=${reference}&type=${type}`;
+}
+
+/* ================= PAY AFTER SERVICE ================= */
+async function payAfterService(){
+    try{
+        const res = await fetch("/assignments/accepted/api/confirm-payment",{
+            method:"POST",
+            headers:{
+                "Content-Type":"application/json",
+                "CSRF-Token": csrfToken
+            },
+            credentials:"include",
+            body:JSON.stringify({ reference, type:"after" })
+        });
+
+        const data = await res.json();
+
+        if(res.ok){
+            alert("Assignment initiated successfully.");
+            window.location.href="/assignments";
+        }else{
+            alert(data.message || "Failed to initiate assignment.");
+        }
+
+    }catch(err){
+        console.error(err);
+        alert("Server error.");
+    }
+}
+
+/* ================= UNLOCK PAY AFTER BUTTON ================= */
+if(PayAfterServiceUnlocked){
+    const btn = document.getElementById("payAfterBtn");
+    btn.disabled = false;
+    btn.innerText = "Proceed Without Payment";
+}
+
+</script>
+
+</body>
+</html>

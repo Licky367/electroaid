@@ -1,0 +1,346 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+<title>Chat | Electro-Aid</title>
+
+<style>
+
+*{box-sizing:border-box;margin:0;padding:0;}
+
+body{
+font-family:Arial,sans-serif;
+background:#8B4513;
+color:#333;
+padding-bottom:100px;
+}
+
+/* ================= MAIN ================= */
+
+main{
+max-width:750px;
+margin:25px auto;
+padding:0 15px;
+}
+
+/* ================= CHAT ================= */
+
+.chat-container{
+background:#fff;
+padding:18px;
+border-radius:18px;
+box-shadow:0 4px 12px rgba(0,0,0,0.15);
+display:flex;
+flex-direction:column;
+height:65vh;
+}
+
+.chat-messages{
+flex:1;
+overflow-y:auto;
+}
+
+/* ================= MESSAGE ================= */
+
+.chat-message{
+padding:8px;
+margin:6px 0;
+border-radius:8px;
+max-width:70%;
+display:flex;
+flex-direction:column;
+}
+
+.client{
+background:#F0E68C;
+align-self:flex-end;
+}
+
+.admin{
+background:#ADD8E6;
+align-self:flex-start;
+}
+
+.meta{
+font-size:0.65rem;
+color:#555;
+margin-top:4px;
+}
+
+.status{
+font-size:0.6rem;
+color:#888;
+}
+
+/* ================= TYPING ================= */
+
+.typing{
+font-style:italic;
+font-size:0.8rem;
+color:#777;
+margin-top:5px;
+height:16px;
+}
+
+/* ================= INPUT ================= */
+
+.chat-input{
+display:flex;
+gap:6px;
+margin-top:10px;
+}
+
+.chat-input input{
+flex:1;
+padding:8px;
+border-radius:6px;
+border:1px solid #ccc;
+}
+
+.chat-input button{
+padding:8px 16px;
+border:none;
+border-radius:6px;
+background:#D2691E;
+color:white;
+cursor:pointer;
+}
+
+.chat-input button:disabled{
+opacity:0.6;
+cursor:not-allowed;
+}
+
+/* ================= EMPTY ================= */
+
+.empty{
+text-align:center;
+color:#777;
+margin-top:20px;
+font-style:italic;
+}
+
+</style>
+
+</head>
+
+<body>
+
+<!-- ✅ REUSABLE HEADER -->
+<%- include("partials/header") %>
+
+<!-- ✅ REUSABLE TOP MENU -->
+<%- include("partials/top-menu", { currentPage: "chat" }) %>
+
+<main>
+
+<div class="chat-container">
+
+<div id="CHAT_MESSAGES" class="chat-messages"></div>
+
+<div id="TYPING" class="typing"></div>
+
+<div class="chat-input">
+<input type="text" id="CHAT_INPUT" placeholder="Type message..." />
+<button id="CHAT_SEND_BTN">Send</button>
+</div>
+
+</div>
+
+</main>
+
+<!-- ✅ REUSABLE FOOTER -->
+<%- include("partials/footer") %>
+
+<script src="/socket.io/socket.io.js"></script>
+
+<script>
+
+/* ================= CONSTANTS ================= */
+
+const CHAT_MESSAGES = document.getElementById("CHAT_MESSAGES")
+const CHAT_INPUT = document.getElementById("CHAT_INPUT")
+const CHAT_SEND_BTN = document.getElementById("CHAT_SEND_BTN")
+const TYPING = document.getElementById("TYPING")
+
+/* ================= STATE ================= */
+
+let socketConnected = false
+let isSending = false
+
+/* ================= SOCKET ================= */
+
+const socket = io()
+
+socket.on("connect", ()=>{
+    socketConnected = true
+    socket.emit("joinClientRoom")
+})
+
+socket.on("disconnect", ()=>{
+    socketConnected = false
+})
+
+socket.on("newMessage",(msg)=>{
+    if(!msg) return
+    REMOVE_EMPTY()
+    APPEND_MESSAGE(msg)
+    SCROLL_DOWN()
+})
+
+socket.on("typing",()=>{
+    TYPING.textContent = "Admin is typing..."
+})
+
+socket.on("stopTyping",()=>{
+    TYPING.textContent = ""
+})
+
+socket.on("messagesRead",()=>{
+    document.querySelectorAll(".status").forEach(el=>{
+        el.textContent = "✓✓ Read"
+    })
+})
+
+/* ================= LOAD ================= */
+
+async function LOAD_MESSAGES(){
+
+try{
+
+const res = await fetch("/api/messages",{credentials:"include"})
+if(!res.ok) return
+
+const data = await res.json()
+
+CHAT_MESSAGES.innerHTML = ""
+
+if(data.length === 0){
+SHOW_EMPTY()
+return
+}
+
+data.forEach(m => APPEND_MESSAGE(m))
+
+SCROLL_DOWN()
+
+}catch(err){
+console.error(err)
+}
+
+}
+
+/* ================= APPEND ================= */
+
+function APPEND_MESSAGE(msg){
+
+const div = document.createElement("div")
+
+div.className = `chat-message ${msg.senderRole}`
+
+div.innerHTML = `
+<strong>${msg.senderRole === "admin" ? "Admin" : "You"}</strong>
+<div>${msg.message}</div>
+<div class="meta">
+${new Date(msg.createdAt).toLocaleString()}
+${msg.senderRole === "client"
+? `<div class="status">${msg.isRead ? "✓✓ Read" : "✓ Sent"}</div>`
+: ""}
+</div>
+`
+
+CHAT_MESSAGES.appendChild(div)
+
+}
+
+/* ================= SEND ================= */
+
+async function SEND_MESSAGE(){
+
+if(isSending) return
+
+const message = CHAT_INPUT.value.trim()
+if(!message) return
+
+isSending = true
+CHAT_SEND_BTN.disabled = true
+
+try{
+
+const res = await fetch("/api/messages",{
+method:"POST",
+headers:{ "Content-Type":"application/json" },
+credentials:"include",
+body:JSON.stringify({ message })
+})
+
+if(!res.ok) throw new Error()
+
+CHAT_INPUT.value = ""
+
+/* socket will handle UI */
+
+if(!socketConnected){
+LOAD_MESSAGES()
+}
+
+}catch(err){
+console.error(err)
+}
+finally{
+isSending = false
+CHAT_SEND_BTN.disabled = false
+}
+
+}
+
+/* ================= TYPING ================= */
+
+let typingTimeout
+
+CHAT_INPUT.addEventListener("input", ()=>{
+
+socket.emit("typing")
+
+clearTimeout(typingTimeout)
+
+typingTimeout = setTimeout(()=>{
+socket.emit("stopTyping")
+},1000)
+
+})
+
+/* ================= HELPERS ================= */
+
+function SCROLL_DOWN(){
+CHAT_MESSAGES.scrollTop = CHAT_MESSAGES.scrollHeight
+}
+
+function SHOW_EMPTY(){
+CHAT_MESSAGES.innerHTML = "<div class='empty'>No messages yet</div>"
+}
+
+function REMOVE_EMPTY(){
+const empty = CHAT_MESSAGES.querySelector(".empty")
+if(empty) empty.remove()
+}
+
+/* ================= EVENTS ================= */
+
+CHAT_SEND_BTN.addEventListener("click", SEND_MESSAGE)
+
+CHAT_INPUT.addEventListener("keypress",(e)=>{
+if(e.key === "Enter") SEND_MESSAGE()
+})
+
+/* ================= INIT ================= */
+
+LOAD_MESSAGES()
+
+</script>
+
+</body>
+</html>

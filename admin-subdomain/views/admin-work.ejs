@@ -1,0 +1,217 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+<title>Admin Work Monitor | Electro-Aid Technologies</title>
+
+<style>
+
+*{box-sizing:border-box;margin:0;padding:0;}
+
+body{
+font-family:Arial,sans-serif;
+background:#8B4513;
+color:#333;
+padding-bottom:100px;
+}
+
+main{
+max-width:800px;
+margin:30px auto;
+background:white;
+padding:20px;
+border-radius:18px;
+}
+
+h2{
+margin-bottom:20px;
+color:#8B4513;
+}
+
+ol{
+padding-left:20px;
+}
+
+li{
+margin-bottom:12px;
+padding:12px;
+border:1px solid #ddd;
+border-radius:10px;
+display:flex;
+justify-content:space-between;
+align-items:center;
+background:#fafafa;
+}
+
+.assignment-title{
+font-weight:bold;
+color:#A0522D;
+}
+
+.time-remaining{
+font-size:0.85rem;
+color:#555;
+margin-top:4px;
+}
+
+.deadline-warning{
+color:red;
+font-weight:bold;
+}
+
+.status{
+font-size:0.8rem;
+color:#D2691E;
+margin-top:4px;
+}
+
+.view-btn{
+padding:6px 12px;
+border:none;
+background:#555;
+color:white;
+border-radius:6px;
+cursor:pointer;
+}
+
+.view-btn:hover{
+background:#333;
+}
+
+.empty{
+text-align:center;
+padding:20px;
+}
+
+footer{
+position:fixed;
+bottom:0;
+width:100%;
+text-align:center;
+padding:12px;
+background:#A0522D;
+color:#fff;
+border-top-left-radius:25px;
+border-top-right-radius:25px;
+}
+
+</style>
+</head>
+
+<body>
+
+<!-- ✅ REUSABLE HEADER -->
+<%- include('partials/header') %>
+
+<!-- ✅ REUSABLE TOP MENU -->
+<%- include('partials/top-menu') %>
+
+<main>
+
+<h2>
+Assignments In Progress (<%= assignments.length %>)
+</h2>
+
+<% if(assignments.length === 0){ %>
+
+<div class="empty">
+No active assignments at the moment.
+</div>
+
+<% } %>
+
+<ol>
+
+<% assignments.forEach(a => { %>
+
+<li>
+
+<div>
+
+<div class="assignment-title">
+<%= a.title || "-" %>
+</div>
+
+<div>Reference: <%= a.reference %></div>
+
+<div>Expert: <%= a.EXPERT_NAME || "Unknown" %></div>
+
+<div class="time-remaining"
+data-due="<%= a.dueDate %>">
+</div>
+
+<div class="status">
+Status: <%= a.status %>
+</div>
+
+</div>
+
+<button class="view-btn"
+onclick="viewWork('<%= a.reference %>')">
+View
+</button>
+
+</li>
+
+<% }) %>
+
+</ol>
+
+</main>
+
+<footer>
+© 2026 Electro-Aid Technologies
+</footer>
+
+<script>
+
+/* ===== TIME REMAINING ===== */
+
+function updateTimers(){
+
+document.querySelectorAll("[data-due]").forEach(el => {
+
+const dueDate = el.getAttribute("data-due");
+
+const now = new Date().getTime();
+const due = new Date(dueDate).getTime();
+
+const diff = due - now;
+
+if(diff <= 0){
+    el.innerText = "Deadline passed";
+    el.classList.add("deadline-warning");
+    return;
+}
+
+const days = Math.floor(diff/(1000*60*60*24));
+const hours = Math.floor((diff%(1000*60*60*24))/(1000*60*60));
+const minutes = Math.floor((diff%(1000*60*60))/(1000*60));
+
+el.innerText =
+`${days}d ${hours}h ${minutes}m remaining`;
+
+if(diff < 6*60*60*1000){
+    el.classList.add("deadline-warning");
+}
+
+});
+
+}
+
+setInterval(updateTimers,60000);
+updateTimers();
+
+/* ===== VIEW ===== */
+
+function viewWork(reference){
+window.location.href =
+`/admin/assignments/work/view/${reference}`;
+}
+
+</script>
+
+</body>
+</html>

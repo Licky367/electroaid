@@ -1,0 +1,203 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Accepted Assignments | Electro-Aid Technologies</title>
+
+<style>
+*{box-sizing:border-box;margin:0;padding:0;}
+
+body{
+  font-family:Arial,sans-serif;
+  background-color:#8B4513;
+  color:#333;
+  padding-bottom:70px;
+}
+
+a{text-decoration:none;color:inherit;}
+
+main{
+  max-width:750px;
+  margin:30px auto;
+  padding:0 15px;
+}
+
+section{
+  background-color:#fff;
+  padding:25px;
+  border-radius:18px;
+  box-shadow:0 4px 12px rgba(0,0,0,0.15);
+}
+
+h2{
+  margin-bottom:15px;
+  font-size:1.6rem;
+  color:#8B4513;
+}
+
+.assignment-item{
+  background:#f7f7f7;
+  padding:15px;
+  border-radius:12px;
+  margin-bottom:15px;
+}
+
+.assignment-item p{
+  margin-bottom:6px;
+  font-size:0.95rem;
+}
+
+.assignment-item strong{
+  color:#A0522D;
+}
+
+.countdown{
+  font-weight:bold;
+  color:#B22222;
+}
+
+.initiate-btn{
+  margin-top:10px;
+  padding:10px 15px;
+  background:#A0522D;
+  color:white;
+  border:none;
+  border-radius:10px;
+  cursor:pointer;
+  font-weight:bold;
+}
+
+.initiate-btn:disabled{
+  background:#aaa;
+  cursor:not-allowed;
+}
+
+.empty-state{
+  text-align:center;
+  font-size:1.1rem;
+  padding:20px;
+}
+</style>
+</head>
+
+<body>
+
+<!-- ✅ REUSABLE HEADER -->
+<%- include("partials/header") %>
+
+<!-- ✅ REUSABLE TOP MENU -->
+<%- include("partials/top-menu", { currentPage: "assignments" }) %>
+
+<main>
+<section>
+
+<h2>Accepted Assignments (<span id="count">0</span>)</h2>
+
+<div id="assignmentsContainer"></div>
+
+</section>
+</main>
+
+<!-- ✅ REUSABLE FOOTER -->
+<%- include("partials/footer") %>
+
+<script>
+
+/* ================= AUTH GUARD ================= */
+async function verifyLogin(){
+    try{
+        const res = await fetch("/auth/me",{credentials:"include"});
+        if(!res.ok) window.location.href="/auth/login";
+    }catch{
+        window.location.href="/auth/login";
+    }
+}
+
+/* ================= FORMAT DATE ================= */
+function formatDate(dateString){
+    if(!dateString) return "N/A";
+    const d = new Date(dateString);
+    return d.toLocaleString(undefined,{
+        year:"numeric",
+        month:"long",
+        day:"numeric",
+        hour:"2-digit",
+        minute:"2-digit"
+    });
+}
+
+/* ================= LOAD ASSIGNMENTS ================= */
+async function loadAcceptedAssignments(){
+    try{
+        const res = await fetch("/assignments/accepted/api/accepted-assignments",{credentials:"include"});
+        if(res.status===401) return window.location.href="/auth/login";
+
+        const assignments = await res.json();
+        const container = document.getElementById("assignmentsContainer");
+        document.getElementById("count").innerText = assignments.length;
+        container.innerHTML="";
+
+        if(assignments.length===0){
+            container.innerHTML=`<div class="empty-state">You have no accepted assignments.</div>`;
+            return;
+        }
+
+        assignments.forEach(a=>{
+            container.innerHTML+=`
+<div class="assignment-item" id="assignment-${a.reference}">
+    <p><strong>Reference Code:</strong> ${a.reference}</p>
+    <p><strong>Title:</strong> ${a.title}</p>
+    <p><strong>Deadline:</strong> ${formatDate(a.deadline)}</p>
+    <p><strong>Expert:</strong> ${a.EXPERT_NAME || "Not assigned"}</p>
+    <p class="countdown" id="countdown-${a.reference}">Time Remaining: calculating...</p>
+    <a href="/assignments/accepted/initiate?ref=${a.reference}">
+        <button type="button" class="initiate-btn" id="initiate-btn-${a.reference}">Initiate Assignment</button>
+    </a>
+</div>`;
+            startCountdown(a.reference,a.deadline);
+        });
+
+    }catch(err){
+        console.error(err);
+        document.getElementById("assignmentsContainer").innerHTML=
+        `<div class="empty-state">Failed to load accepted assignments.</div>`;
+    }
+}
+
+/* ================= COUNTDOWN ================= */
+function startCountdown(reference, deadline){
+    const timer = document.getElementById(`countdown-${reference}`);
+    const initiateBtn = document.getElementById(`initiate-btn-${reference}`);
+
+    function update(){
+        const now = new Date().getTime();
+        const due = new Date(deadline).getTime();
+        const distance = due - now;
+
+        if(distance<=0){
+            timer.innerText="Time Remaining: Expired";
+            if(initiateBtn) initiateBtn.disabled=true;
+            return;
+        }
+
+        const days = Math.floor(distance/(1000*60*60*24));
+        const hours = Math.floor((distance%(1000*60*60*24))/(1000*60*60));
+        const minutes = Math.floor((distance%(1000*60*60))/(1000*60));
+        const seconds = Math.floor((distance%(1000*60))/1000);
+
+        timer.innerText=`Time Remaining: ${days}d ${hours}h ${minutes}m ${seconds}s`;
+    }
+
+    update();
+    setInterval(update,1000);
+}
+
+/* ================= INIT ================= */
+verifyLogin();
+loadAcceptedAssignments();
+
+</script>
+
+</body>
+</html>

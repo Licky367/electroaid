@@ -1,0 +1,220 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Admin | Expert Approval</title>
+
+<style>
+*{box-sizing:border-box;margin:0;padding:0;}
+
+body{
+font-family:Arial,sans-serif;
+background:#8B4513;
+padding-top:110px;
+padding-bottom:90px;
+color:#333;
+}
+
+main{
+max-width:1000px;
+margin:25px auto;
+padding:0 15px;
+}
+
+.container{
+background:#fff;
+padding:20px;
+border-radius:18px;
+box-shadow:0 5px 15px rgba(0,0,0,0.25);
+margin-bottom:20px;
+}
+
+h2{
+color:#8B4513;
+margin-bottom:15px;
+}
+
+/* INPUT */
+input{
+width:100%;
+padding:10px;
+border-radius:8px;
+border:1px solid #ccc;
+margin-bottom:10px;
+}
+
+/* BUTTON */
+button{
+padding:10px 15px;
+border:none;
+border-radius:8px;
+background:#D2691E;
+color:#fff;
+cursor:pointer;
+}
+button:hover{ background:#A0522D; }
+
+/* STATUS */
+#generatedNumber{
+margin-top:10px;
+font-weight:bold;
+font-size:14px;
+}
+
+/* TABLE */
+table{
+width:100%;
+border-collapse:collapse;
+margin-top:10px;
+}
+
+th,td{
+padding:10px;
+border:1px solid #ddd;
+text-align:center;
+}
+
+th{
+background:#f2f2f2;
+}
+
+/* EMPTY */
+.empty{
+text-align:center;
+color:#777;
+font-style:italic;
+padding:15px;
+}
+
+/* FOOTER */
+footer{
+position:fixed;
+bottom:0;
+width:100%;
+background:#A0522D;
+color:#fff;
+text-align:center;
+padding:12px;
+border-top-left-radius:25px;
+border-top-right-radius:25px;
+}
+</style>
+</head>
+
+<body>
+
+<!-- ✅ HEADER -->
+<%- include("partials/header") %>
+
+<!-- ✅ TOP MENU -->
+<%- include("partials/top-menu", { admin }) %>
+
+<main>
+
+<!-- ================= INVITE ================= -->
+<div class="container">
+<h2>Invite Expert</h2>
+
+<input 
+    type="email" 
+    id="expertEmail" 
+    placeholder="Enter expert email"
+>
+
+<button onclick="generateRegistrationNumber()">
+Send Invitation
+</button>
+
+<p id="generatedNumber">
+Enter email and send invite
+</p>
+</div>
+
+<!-- ================= TABLE ================= -->
+<div class="container">
+<h2>Invited Experts</h2>
+
+<% if(!experts || experts.length === 0){ %>
+
+<p class="empty">No invitations sent yet.</p>
+
+<% } else { %>
+
+<table>
+<thead>
+<tr>
+<th>Registration Number</th>
+<th>Expert Email</th>
+<th>Invited By</th>
+</tr>
+</thead>
+
+<tbody>
+<% (experts || []).forEach(expert => { %>
+<tr>
+<td><%= expert.REG_NO || '' %></td>
+<td><%= expert.EXPERT_EMAIL || '' %></td>
+<td><%= expert.ADMIN_NAME || '—' %></td>
+</tr>
+<% }) %>
+</tbody>
+</table>
+
+<% } %>
+
+</div>
+
+</main>
+
+<footer>
+© <%= new Date().getFullYear() %> Electro-Aid Technologies
+</footer>
+
+<script>
+async function generateRegistrationNumber(){
+    try{
+        const emailInput = document.getElementById("expertEmail");
+        const statusText = document.getElementById("generatedNumber");
+
+        const email = emailInput.value.trim();
+
+        if(!email){
+            alert("Please enter an email");
+            return;
+        }
+
+        statusText.innerText = "Sending invitation...";
+
+        const response = await fetch("/admin/expert-approval/generate", {
+            method: "POST",
+            headers: {"Content-Type":"application/json"},
+            body: JSON.stringify({
+                EXPERT_EMAIL: email
+            })
+        });
+
+        const data = await response.json();
+
+        if(!response.ok){
+            statusText.innerText = "";
+            alert(data.message || "Failed to send invite");
+            return;
+        }
+
+        statusText.innerText =
+            "Invitation sent. REG_NO: " + data.REG_NO;
+
+        emailInput.value = "";
+
+        setTimeout(() => location.reload(), 1200);
+
+    }catch(err){
+        console.error(err);
+        alert("Error sending invitation.");
+    }
+}
+</script>
+
+</body>
+</html>

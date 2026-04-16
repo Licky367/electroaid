@@ -1,0 +1,351 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Expert Invoice | Electro-Aid Technologies</title>
+
+<style>
+*{box-sizing:border-box;margin:0;padding:0;}
+
+body{
+    font-family:Arial,sans-serif;
+    background:#8B4513;
+    color:#333;
+    padding-bottom:70px;
+}
+
+a{text-decoration:none;color:inherit;}
+
+main{
+    max-width:900px;
+    margin:30px auto;
+    padding:0 15px;
+}
+
+section{
+    background:#fff;
+    padding:25px;
+    border-radius:18px;
+    margin-bottom:20px;
+}
+
+h2{margin-bottom:10px;}
+
+input,button{
+    padding:10px;
+    margin-top:10px;
+    border-radius:8px;
+    border:1px solid #ccc;
+}
+
+button{
+    background:#A0522D;
+    color:white;
+    cursor:pointer;
+    border:none;
+}
+
+button:hover{
+    opacity:0.9;
+}
+
+table{
+    width:100%;
+    border-collapse:collapse;
+    margin-top:15px;
+}
+
+th,td{
+    border:1px solid #ddd;
+    padding:10px;
+    text-align:left;
+}
+
+th{
+    background:#f2f2f2;
+}
+
+.paid{color:green;font-weight:bold;}
+.pending{color:orange;font-weight:bold;}
+.locked{color:red;font-weight:bold;}
+
+.empty{
+    text-align:center;
+    color:#777;
+}
+
+footer{
+    position:fixed;
+    bottom:0;
+    width:100%;
+    text-align:center;
+    padding:12px;
+    background:#A0522D;
+    color:#fff;
+}
+</style>
+</head>
+
+<body>
+
+<!-- HEADER -->
+<%- include('partials/header') %>
+
+<!-- TOP MENU -->
+<%- include('partials/top-menu') %>
+
+<main>
+
+<!-- LOAD SECTION -->
+<section>
+    <h2>Load Invoice</h2>
+
+    <input type="date" id="dateInput">
+    <button onclick="loadByDate()">Load</button>
+
+    <p id="weekRange" style="margin-top:10px;font-weight:bold;"></p>
+</section>
+
+<!-- INVOICE SECTION -->
+<section>
+
+    <h2>Invoice</h2>
+
+    <p>Status: <span id="status"></span></p>
+    <p>Transaction: <span id="transaction"></span></p>
+
+    <table>
+        <thead>
+            <tr>
+                <th>Reference</th>
+                <th>Title</th>
+                <th>USD</th>
+                <th>KES</th>
+            </tr>
+        </thead>
+        <tbody id="assignmentTable"></tbody>
+    </table>
+
+    <h3 style="margin-top:15px;">
+        Total USD: <span id="totalUSD"></span>
+    </h3>
+
+    <h3>
+        Total KES: <span id="totalKES"></span>
+    </h3>
+
+    <button onclick="downloadPDF()">Download PDF</button>
+
+</section>
+
+<!-- HISTORY -->
+<section>
+
+    <h2>Payment History</h2>
+
+    <table>
+        <thead>
+            <tr>
+                <th>Week</th>
+                <th>USD</th>
+                <th>KES</th>
+                <th>Status</th>
+                <th>Action</th>
+            </tr>
+        </thead>
+
+        <tbody id="historyTable"></tbody>
+    </table>
+
+</section>
+
+</main>
+
+<footer>
+<p>&copy; 2026 Electro-Aid Technologies</p>
+</footer>
+
+<script>
+
+let currentWeek = null;
+
+/* ================= INIT ================= */
+
+window.addEventListener("DOMContentLoaded", async () => {
+
+    const today = new Date().toISOString().split("T")[0];
+    document.getElementById("dateInput").value = today;
+
+    await loadByDate();
+    await loadHistory();
+});
+
+/* ================= LOAD BY DATE ================= */
+
+async function loadByDate(){
+
+    const date = document.getElementById("dateInput").value;
+
+    if(!date){
+        alert("Select a date");
+        return;
+    }
+
+    try{
+        const res = await fetch(`/expert/invoice/api/invoice/by-date?date=${date}`);
+        const data = await res.json();
+
+        currentWeek = data.week;
+
+        renderInvoice(data);
+
+    }catch(err){
+        alert("Failed to load invoice");
+    }
+}
+
+/* ================= RENDER INVOICE ================= */
+
+function renderInvoice(data){
+
+    document.getElementById("weekRange").innerText = data.weekRange;
+
+    const statusEl = document.getElementById("status");
+
+    statusEl.innerText = data.status;
+    statusEl.className = "";
+
+    if(data.status === "PAID"){
+        statusEl.classList.add("paid");
+    }
+    else if(data.status === "PENDING"){
+        statusEl.classList.add("pending");
+    }
+    else if(data.status === "WAITING_WEEKEND"){
+        statusEl.classList.add("locked");
+        statusEl.innerText = "WAITING (Current Week)";
+    }
+    else{
+        statusEl.classList.add("locked");
+    }
+
+    document.getElementById("transaction").innerText =
+        data.transactionCode || "-";
+
+    const table = document.getElementById("assignmentTable");
+    table.innerHTML = "";
+
+    if(!data.assignments || data.assignments.length === 0){
+        table.innerHTML = `
+            <tr>
+                <td colspan="4" class="empty">
+                    No completed assignments
+                </td>
+            </tr>
+        `;
+    } else {
+
+        const rows = data.assignments.map(a => `
+            <tr>
+                <td>${a.reference}</td>
+                <td>${a.title || "-"}</td>
+                <td>${a.payoutUSD}</td>
+                <td>${a.payoutKES}</td>
+            </tr>
+        `).join("");
+
+        table.innerHTML = rows;
+    }
+
+    document.getElementById("totalUSD").innerText = data.totalUSD;
+    document.getElementById("totalKES").innerText = data.totalKES;
+}
+
+/* ================= LOAD HISTORY ================= */
+
+async function loadHistory(){
+
+    try{
+        const res = await fetch("/expert/invoice/api/invoice/history");
+        const data = await res.json();
+
+        const table = document.getElementById("historyTable");
+        table.innerHTML = "";
+
+        if(!data.history || data.history.length === 0){
+            table.innerHTML = `
+                <tr>
+                    <td colspan="5" class="empty">
+                        No payment history
+                    </td>
+                </tr>
+            `;
+            return;
+        }
+
+        const rows = data.history.map(h => `
+            <tr>
+                <td>${h.week}</td>
+                <td>${h.amountUSD}</td>
+                <td>${h.amountKES}</td>
+                <td class="${getStatusClass(h.status)}">${h.status}</td>
+                <td>
+                    <button onclick="loadFromHistory('${h.week}')">
+                        View
+                    </button>
+                </td>
+            </tr>
+        `).join("");
+
+        table.innerHTML = rows;
+
+    }catch(err){
+        console.error(err);
+    }
+}
+
+/* ================= STATUS CLASS ================= */
+
+function getStatusClass(status){
+    if(status === "PAID") return "paid";
+    if(status === "PENDING") return "pending";
+    return "locked";
+}
+
+/* ================= LOAD FROM HISTORY ================= */
+
+async function loadFromHistory(week){
+
+    try{
+        const res = await fetch(`/expert/invoice/api/invoice?week=${week}`);
+        const data = await res.json();
+
+        currentWeek = week;
+
+        renderInvoice(data);
+
+    }catch(err){
+        alert("Failed to load history invoice");
+    }
+}
+
+/* ================= DOWNLOAD ================= */
+
+function downloadPDF(){
+
+    if(!currentWeek){
+        alert("Load invoice first");
+        return;
+    }
+
+    window.open(
+        `/expert/invoice/api/invoice/download?week=${currentWeek}`,
+        "_blank"
+    );
+}
+
+</script>
+
+</body>
+</html>

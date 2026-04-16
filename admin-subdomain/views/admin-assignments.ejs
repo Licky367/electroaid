@@ -1,0 +1,98 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+<title>Admin Assignments | Electro-Aid Technologies</title>
+
+<style>
+*{ box-sizing:border-box; margin:0; padding:0; }
+
+body{
+font-family:Arial,sans-serif;
+background:#8B4513;
+color:#333;
+padding-top:120px;
+padding-bottom:90px;
+}
+
+main{
+max-width:900px;
+margin:30px auto;
+padding:20px;
+}
+
+/* LIST */
+ul{
+list-style:none;
+}
+
+li{
+background:white;
+margin-bottom:15px;
+padding:18px;
+border-radius:12px;
+box-shadow:0 4px 10px rgba(0,0,0,0.2);
+}
+
+a{
+text-decoration:none;
+color:#A0522D;
+font-weight:bold;
+font-size:1.05rem;
+display:block;
+}
+</style>
+
+</head>
+
+<body>
+
+<!-- HEADER -->
+<%- include("partials/header") %>
+
+<!-- TOP MENU -->
+<%- include("partials/top-menu") %>
+
+<main>
+
+<ul>
+
+<li>
+<a href="/admin/assignments/pending">
+Market Place (<%= pendingCount %>)
+</a>
+</li>
+
+<li>
+<a href="/admin/assignments/waiting">
+Awaiting Client Initiation (<%= acceptedCount %>)
+</a>
+</li>
+
+<li>
+<a href="/admin/assignments/work">
+Work In Progress (<%= inProgressCount %>)
+</a>
+</li>
+
+<li>
+<a href="/admin/assignments/completed">
+Completed Assignments (<%= completedCount %>)
+</a>
+</li>
+
+<li>
+<a href="/admin/assignments/declined">
+Declined Assignments (<%= declinedCount %>)
+</a>
+</li>
+
+</ul>
+
+</main>
+
+</body>
+</html>

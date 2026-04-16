@@ -1,0 +1,110 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+<title>Declined Assignments</title>
+
+<style>
+*{box-sizing:border-box;margin:0;padding:0;}
+
+body{
+font-family:Arial,sans-serif;
+background:#f5f5f5;
+padding-bottom:70px;
+}
+
+.container{
+max-width:900px;
+margin:auto;
+padding:20px;
+}
+
+h2{
+margin-bottom:20px;
+color:#8B4513;
+}
+
+.assignment{
+background:white;
+border:1px solid #ddd;
+padding:15px;
+margin-bottom:12px;
+border-radius:8px;
+}
+
+.assignment p{
+margin-bottom:6px;
+font-size:0.95rem;
+}
+
+.assignment strong{
+color:#A0522D;
+}
+
+.empty{
+text-align:center;
+color:#444;
+padding:30px;
+font-size:18px;
+}
+
+footer{
+position:fixed;
+bottom:0;
+width:100%;
+text-align:center;
+background:#8B4513;
+color:white;
+padding:12px;
+}
+</style>
+</head>
+
+<body>
+
+<!-- ✅ CORRECT PARTIAL PATHS -->
+<%- include("partials/header") %>
+<%- include("partials/top-menu") %>
+
+<div class="container">
+
+<h2>Declined Assignments (<%= assignments.length %>)</h2>
+
+<% if (!assignments || assignments.length === 0) { %>
+
+<div class="empty">
+No declined assignments
+</div>
+
+<% } else { %>
+
+<% assignments.forEach(a => { %>
+
+<div class="assignment">
+
+<p><strong>Title:</strong> <%= a.title %></p>
+
+<p><strong>Reference:</strong> <%= a.reference %></p>
+
+<p><strong>Client Name:</strong> <%= a.CLIENT_NAME %></p>
+
+<p><strong>Declined At:</strong> <%= a.declinedAt %></p>
+
+<p><strong>Declined By:</strong> <%= a.ADMIN_NAME || "Unknown" %></p>
+
+</div>
+
+<% }) %>
+
+<% } %>
+
+</div>
+
+<footer>
+© 2026 Electro-Aid Technologies
+</footer>
+
+</body>
+</html>

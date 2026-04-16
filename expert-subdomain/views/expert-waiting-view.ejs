@@ -1,0 +1,221 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+<title>Waiting Assignment Details | Electro-Aid Technologies</title>
+
+<style>
+
+body{
+font-family:Arial,sans-serif;
+background:#8B4513;
+margin:0;
+padding:20px;
+}
+
+.container{
+max-width:800px;
+margin:auto;
+background:white;
+padding:25px;
+border-radius:15px;
+}
+
+h2{
+margin-bottom:15px;
+color:#8B4513;
+}
+
+.info{
+margin-bottom:12px;
+}
+
+.files a{
+display:block;
+margin:5px 0;
+text-decoration:none;
+color:#A0522D;
+}
+
+.files a:hover{
+text-decoration:underline;
+}
+
+.status{
+color:#B22222;
+font-weight:bold;
+margin-top:20px;
+}
+
+.error{
+color:#B22222;
+font-weight:bold;
+margin-top:20px;
+}
+
+</style>
+
+</head>
+
+<body>
+
+<div class="container">
+
+<h2 id="title">Loading...</h2>
+
+<div class="info">
+<strong>Reference Code:</strong>
+<span id="reference"></span>
+</div>
+
+<div class="info">
+<strong>Client:</strong>
+<span id="client"></span>
+</div>
+
+<div class="info">
+<strong>Due Date:</strong>
+<span id="dueDate"></span>
+</div>
+
+<div class="info">
+<strong>Instructions:</strong>
+<p id="instructions"></p>
+</div>
+
+<div class="info">
+<strong>Files:</strong>
+<div id="files" class="files"></div>
+</div>
+
+<div class="info status">
+Waiting for client to initiate work
+</div>
+
+<div id="errorMessage" class="error" style="display:none"></div>
+
+</div>
+
+<script>
+
+/* ================= XSS ================= */
+
+function escapeHTML(text){
+if(!text) return ""
+return text
+.replace(/&/g,"&amp;")
+.replace(/</g,"&lt;")
+.replace(/>/g,"&gt;")
+.replace(/"/g,"&quot;")
+.replace(/'/g,"&#039;")
+}
+
+/* ================= SAFE URL ================= */
+
+function safeURL(url){
+try{
+return new URL(url,window.location.origin).href
+}catch{
+return "#"
+}
+}
+
+/* ================= PARAM ================= */
+
+const params = new URLSearchParams(window.location.search)
+const reference = params.get("ref")
+
+if(!reference){
+alert("Invalid assignment reference")
+window.location.href="/expert/assignments/waiting"
+}
+
+/* ================= LOAD ================= */
+
+async function load(){
+
+try{
+
+const res = await fetch(
+`/expert/assignments/api/waiting-assignment/${encodeURIComponent(reference)}`,
+{credentials:"include"}
+)
+
+if(!res.ok){
+throw new Error("Failed to load assignment")
+}
+
+const a = await res.json()
+
+/* STATUS SAFETY (UPDATED) */
+
+if(a.status !== "accepted"){
+alert("This assignment is no longer in waiting stage.")
+window.location.href="/expert/assignments/waiting"
+}
+
+/* DISPLAY */
+
+document.getElementById("title").innerText =
+a.title ? escapeHTML(a.title) : "Untitled Assignment"
+
+document.getElementById("reference").innerText =
+a.reference ? escapeHTML(a.reference) : "-"
+
+document.getElementById("client").innerText =
+a.CLIENT_NAME ? escapeHTML(a.CLIENT_NAME) : "Unknown"
+
+document.getElementById("dueDate").innerText =
+a.dueDate ? new Date(a.dueDate).toLocaleString() : "Not specified"
+
+document.getElementById("instructions").innerText =
+a.instructions ? escapeHTML(a.instructions) : "No instructions provided."
+
+/* FILES */
+
+const filesDiv = document.getElementById("files")
+filesDiv.innerHTML = ""
+
+if(Array.isArray(a.files) && a.files.length){
+
+a.files.forEach(f=>{
+
+const link = document.createElement("a")
+
+link.href = safeURL(f.url)
+link.target = "_blank"
+
+link.innerText = `📎 ${escapeHTML(f.name)}`
+
+filesDiv.appendChild(link)
+
+})
+
+}else{
+
+filesDiv.innerText = "No files uploaded."
+
+}
+
+}catch(err){
+
+console.error(err)
+
+const errorDiv = document.getElementById("errorMessage")
+errorDiv.style.display="block"
+errorDiv.innerText = "Unable to load assignment details."
+
+}
+
+}
+
+load()
+
+</script>
+
+</body>
+</html>

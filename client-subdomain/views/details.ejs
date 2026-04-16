@@ -1,0 +1,154 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+<title>Assignment Details | Electro-Aid Technologies</title>
+
+<style>
+*{box-sizing:border-box;margin:0;padding:0;}
+
+body{
+    font-family: Arial, sans-serif;
+    background:#8B4513;
+    padding-bottom:100px;
+}
+
+a{text-decoration:none;color:inherit;}
+
+.container{
+    max-width:900px;
+    margin:30px auto;
+    padding:20px;
+}
+
+section{
+    background:white;
+    border-radius:18px;
+    padding:18px;
+    margin-bottom:20px;
+    box-shadow:0 4px 12px rgba(0,0,0,0.15);
+}
+
+h2{
+    margin-bottom:12px;
+    color:#8B4513;
+}
+
+.file-link{
+    display:block;
+    margin:6px 0;
+    color:#A0522D;
+}
+
+.file-link:hover{
+    text-decoration:underline;
+}
+
+.stars span{
+    font-size:1.8rem;
+    color:#ccc;
+}
+
+.stars .active{
+    color:gold;
+}
+
+.feedback-text{
+    margin-top:10px;
+    padding:10px;
+    border-radius:8px;
+    border:1px solid #ccc;
+    background:#f4f4f4;
+}
+</style>
+
+</head>
+
+<body>
+
+<!-- ✅ REUSABLE HEADER -->
+<%- include("partials/header") %>
+
+<!-- ✅ REUSABLE TOP MENU -->
+<%- include("partials/top-menu", { currentPage: "assignments" }) %>
+
+<div class="container">
+
+    <!-- Assignment Info -->
+    <section>
+        <h2>Assignment Information</h2>
+
+        <p><strong>Subject:</strong> <%= assignment.subject %></p>
+        <p><strong>Title:</strong> <%= assignment.title %></p>
+        <p><strong>Reference Code:</strong> <%= assignment.reference %></p>
+
+        <p><strong>Submitted:</strong>
+            <%
+                const submitted = new Date(assignment.submittedAt)
+                const deadline = new Date(assignment.deadline)
+
+                const diffMs = submitted - deadline
+
+                const days = Math.floor(Math.abs(diffMs) / (1000*60*60*24))
+                const hours = Math.floor((Math.abs(diffMs) % (1000*60*60*24)) / (1000*60*60))
+                const minutes = Math.floor((Math.abs(diffMs) % (1000*60*60)) / (1000*60))
+                const seconds = Math.floor((Math.abs(diffMs) % (1000*60)) / 1000)
+
+                let submittedText
+
+                if(diffMs > 0){
+                    submittedText = `${days}d ${hours}h ${minutes}m ${seconds}s after deadline`
+                } else if(diffMs < 0){
+                    submittedText = `${days}d ${hours}h ${minutes}m ${seconds}s before deadline`
+                } else {
+                    submittedText = "Submitted exactly at deadline"
+                }
+            %>
+            <%= submittedText %>
+        </p>
+
+    </section>
+
+    <!-- Expert Details -->
+    <section>
+        <h2>Expert Details</h2>
+        <p><strong>Assigned Expert:</strong> <%= assignment.EXPERT_NAME %></p>
+        <p><strong>Registration Number:</strong> <%= assignment.REG_NO %></p>
+    </section>
+
+    <!-- Submitted Work -->
+    <section>
+        <h2>Submitted Work</h2>
+
+        <% assignment.submissionFiles.forEach(file => { %>
+            <a href="<%= file.url %>" target="_blank" class="file-link">
+                <%= file.name %>
+            </a>
+        <% }) %>
+
+    </section>
+
+    <!-- Feedback -->
+    <section>
+        <h2>Feedback</h2>
+
+        <div class="stars">
+            <% for(let i = 1; i <= 5; i++){ %>
+                <span class="<%= i <= assignment.rating ? 'active' : '' %>">★</span>
+            <% } %>
+        </div>
+
+        <div class="feedback-text">
+            <%= assignment.feedback %>
+        </div>
+    </section>
+
+</div>
+
+<!-- ✅ REUSABLE FOOTER -->
+<%- include("partials/footer") %>
+
+</body>
+</html>

@@ -1,0 +1,179 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+<title>Admin | Available Assignments</title>
+
+<style>
+
+*{box-sizing:border-box;margin:0;padding:0;}
+
+body{
+font-family:Arial,sans-serif;
+background-color:#8B4513;
+color:#333;
+padding-bottom:70px;
+}
+
+/* PAGE CONTENT ONLY */
+main{
+max-width:800px;
+margin:30px auto;
+padding:0 15px;
+}
+
+section{
+background-color:#fff;
+padding:25px;
+border-radius:18px;
+box-shadow:0 4px 12px rgba(0,0,0,0.15);
+}
+
+h2{
+margin-bottom:15px;
+font-size:1.6rem;
+color:#8B4513;
+}
+
+.assignment-item{
+background:#f7f7f7;
+padding:15px;
+border-radius:12px;
+margin-bottom:15px;
+}
+
+.assignment-item p{
+margin-bottom:6px;
+font-size:0.95rem;
+}
+
+.assignment-item strong{
+color:#A0522D;
+}
+
+.button-row{
+display:flex;
+gap:10px;
+margin-top:10px;
+}
+
+.view-btn{
+flex:1;
+padding:10px;
+border:none;
+border-radius:8px;
+background:#555;
+color:white;
+font-weight:bold;
+cursor:pointer;
+}
+
+.view-btn:hover{
+background:#333;
+}
+
+.empty-state{
+text-align:center;
+font-size:1.1rem;
+padding:20px;
+}
+
+footer{
+position:fixed;
+bottom:0;
+width:100%;
+text-align:center;
+padding:12px;
+background-color:#A0522D;
+color:#fff;
+border-top-left-radius:25px;
+border-top-right-radius:25px;
+font-size:0.85rem;
+}
+
+</style>
+
+</head>
+
+<body>
+
+<!-- ✅ CORRECT PARTIAL PATHS -->
+<%- include('partials/header') %>
+<%- include('partials/top-menu') %>
+
+<main>
+
+<section>
+
+<h2>
+Available Assignments
+(<%= assignments?.length || 0 %>)
+</h2>
+
+<% if (!assignments || assignments.length === 0) { %>
+
+<div class="empty-state">
+No assignments available right now.
+</div>
+
+<% } else { %>
+
+<% assignments.forEach(a => { %>
+
+<div class="assignment-item">
+
+<p><strong>Reference Code:</strong> <%= a.reference || "-" %></p>
+
+<p><strong>Title:</strong> <%= a.title || "-" %></p>
+
+<p><strong>Client:</strong> <%= a.CLIENT_NAME || "-" %></p>
+
+<p><strong>Due Date & Time:</strong> 
+<%= a.dueDate ? new Date(a.dueDate).toLocaleString() : "-" %>
+</p>
+
+<p><strong>Budget:</strong> $<%= a.budget ?? 0 %></p>
+
+<p><strong>Payout:</strong> $<%= a.payout ?? 0 %></p>
+
+<p><strong>Profit:</strong> $<%= a.profit ?? 0 %></p>
+
+<div class="button-row">
+
+<button class="view-btn"
+onclick="viewAssignment('<%= a.reference %>')">
+View Full Work
+</button>
+
+</div>
+
+</div>
+
+<% }) %>
+
+<% } %>
+
+</section>
+
+</main>
+
+<footer>
+<p>&copy; 2026 Electro-Aid Technologies</p>
+</footer>
+
+<script>
+
+function viewAssignment(reference){
+window.location.href =
+`/admin/assignments/pending/view/${reference}`;
+}
+
+</script>
+
+</body>
+
+</html>

@@ -1,0 +1,289 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+<title>Admin Payment Statistics | Electro-Aid Technologies</title>
+
+<style>
+*{ box-sizing:border-box; margin:0; padding:0; }
+
+body{
+font-family:Arial,sans-serif;
+background:#8B4513;
+color:#333;
+padding-top:120px;
+padding-bottom:80px;
+}
+
+main{
+max-width:900px;
+margin:30px auto;
+padding:20px;
+background:white;
+border-radius:18px;
+box-shadow:0 4px 12px rgba(0,0,0,0.15);
+}
+
+h2{ color:#8B4513; margin-bottom:10px; }
+
+.controls{ margin-bottom:15px; }
+
+.controls input,.controls select{
+padding:6px;
+margin-right:8px;
+}
+
+button{
+padding:6px 12px;
+background:#D2691E;
+color:white;
+border:none;
+border-radius:5px;
+cursor:pointer;
+}
+
+button:hover{ background:#8B4513; }
+
+table{
+width:100%;
+border-collapse:collapse;
+margin-top:10px;
+}
+
+th,td{
+border:1px solid #ddd;
+padding:10px;
+text-align:center;
+}
+
+th{ background:#f3f3f3; }
+
+tfoot td{
+font-weight:bold;
+background:#fafafa;
+}
+
+footer{
+position:fixed;
+bottom:0;
+width:100%;
+text-align:center;
+padding:10px;
+background:#A0522D;
+color:white;
+border-top-left-radius:25px;
+border-top-right-radius:25px;
+}
+</style>
+
+</head>
+
+<body>
+
+<!-- ✅ CORRECT PARTIAL PATHS -->
+<%- include("partials/header") %>
+<%- include("partials/top-menu") %>
+
+<main>
+
+<!-- DAILY -->
+<section>
+
+<h2>Daily Statistics</h2>
+
+<div class="controls">
+<input type="date" id="dailyDate">
+<button onclick="loadDailyStats()">Search</button>
+</div>
+
+<table>
+<thead>
+<tr>
+<th>Time</th>
+<th>Method</th>
+<th>Payment Status</th>
+<th>Amount ($)</th>
+</tr>
+</thead>
+
+<tbody id="dailyTableBody">
+<tr>
+<td colspan="4">Loading today's transactions...</td>
+</tr>
+</tbody>
+
+<tfoot>
+<tr>
+<td colspan="3">Total for Day</td>
+<td id="dailyTotal">0.00</td>
+</tr>
+</tfoot>
+
+</table>
+
+</section>
+
+<br><br>
+
+<!-- MONTHLY -->
+<section>
+
+<h2>Monthly Statistics</h2>
+
+<div class="controls">
+
+<select id="monthSelect">
+<option value="1">January</option>
+<option value="2">February</option>
+<option value="3">March</option>
+<option value="4">April</option>
+<option value="5">May</option>
+<option value="6">June</option>
+<option value="7">July</option>
+<option value="8">August</option>
+<option value="9">September</option>
+<option value="10">October</option>
+<option value="11">November</option>
+<option value="12">December</option>
+</select>
+
+<input type="number" id="yearSelect" placeholder="Year">
+
+<button onclick="loadMonthlyStats()">Search</button>
+
+</div>
+
+<table>
+
+<thead>
+<tr>
+<th>Time</th>
+<th>Method</th>
+<th>Payment Status</th>
+<th>Amount ($)</th>
+</tr>
+</thead>
+
+<tbody id="monthlyTableBody">
+<tr>
+<td colspan="4">Select month and year</td>
+</tr>
+</tbody>
+
+<tfoot>
+<tr>
+<td colspan="3">Total Monthly</td>
+<td id="monthlyTotal">0.00</td>
+</tr>
+
+<tr>
+<td colspan="3">Total Annual</td>
+<td id="annualTotal">0.00</td>
+</tr>
+</tfoot>
+
+</table>
+
+</section>
+
+</main>
+
+<footer>
+&copy; 2026 Electro-Aid Technologies
+</footer>
+
+<script>
+
+/* DEFAULTS */
+const today = new Date()
+const iso = today.toISOString().split("T")[0]
+
+document.getElementById("dailyDate").value = iso
+document.getElementById("monthSelect").value = today.getMonth() + 1
+document.getElementById("yearSelect").value = today.getFullYear()
+
+/* DAILY */
+async function loadDailyStats(){
+
+const date = document.getElementById("dailyDate").value
+if(!date){ alert("Select a date first"); return }
+
+const res = await fetch(`/admin/stats/api/payment-stats/daily?date=${date}`,{
+credentials:"include"
+})
+
+const data = await res.json()
+
+const body = document.getElementById("dailyTableBody")
+body.innerHTML = ""
+
+let total = 0
+
+if(!data.records.length){
+body.innerHTML = `<tr><td colspan="4">No transactions</td></tr>`
+}else{
+data.records.forEach(r=>{
+const row = document.createElement("tr")
+row.innerHTML = `
+<td>${r.time}</td>
+<td>${r.method}</td>
+<td>${r.paymentStatus}</td>
+<td>${r.amountUSD}</td>
+`
+body.appendChild(row)
+total += parseFloat(r.amountUSD)
+})
+}
+
+document.getElementById("dailyTotal").innerText = total.toFixed(2)
+}
+
+/* MONTHLY */
+async function loadMonthlyStats(){
+
+const month = document.getElementById("monthSelect").value
+const year = document.getElementById("yearSelect").value
+
+if(!year){ alert("Enter a year"); return }
+
+const res = await fetch(`/admin/stats/api/payment-stats/monthly?month=${month}&year=${year}`,{
+credentials:"include"
+})
+
+const data = await res.json()
+
+const body = document.getElementById("monthlyTableBody")
+body.innerHTML = ""
+
+let monthlyTotal = 0
+
+if(!data.records.length){
+body.innerHTML = `<tr><td colspan="4">No transactions</td></tr>`
+}else{
+data.records.forEach(r=>{
+const row = document.createElement("tr")
+row.innerHTML = `
+<td>${r.time}</td>
+<td>${r.method}</td>
+<td>${r.paymentStatus}</td>
+<td>${r.amountUSD}</td>
+`
+body.appendChild(row)
+monthlyTotal += parseFloat(r.amountUSD)
+})
+}
+
+document.getElementById("monthlyTotal").innerText = monthlyTotal.toFixed(2)
+document.getElementById("annualTotal").innerText = parseFloat(data.annualTotal).toFixed(2)
+}
+
+/* AUTO LOAD */
+loadDailyStats()
+
+</script>
+
+</body>
+</html>

@@ -1,0 +1,351 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+<title>Available Assignments | Electro-Aid Technologies</title>
+
+<style>
+
+*{
+box-sizing:border-box;
+margin:0;
+padding:0;
+}
+
+body{
+font-family:Arial,sans-serif;
+background-color:#8B4513;
+color:#333;
+padding-bottom:70px;
+}
+
+a{
+text-decoration:none;
+color:inherit;
+}
+
+/* HEADER */
+
+header{
+position:sticky;
+top:0;
+background-color:#A0522D;
+text-align:center;
+padding:10px;
+border-bottom-left-radius:25px;
+border-bottom-right-radius:25px;
+box-shadow:0 4px 10px rgba(0,0,0,0.3);
+}
+
+header h1{
+font-size:1.8rem;
+margin-bottom:4px;
+}
+
+header p{
+font-style:italic;
+color:#fff;
+font-size:0.9rem;
+}
+
+/* MENU */
+
+.top-menu{
+position:sticky;
+top:95px;
+background-color:#D2691E;
+display:flex;
+justify-content:space-around;
+padding:8px 0;
+box-shadow:0 4px 10px rgba(0,0,0,0.3);
+}
+
+.top-menu a{
+color:white;
+font-size:0.85rem;
+display:flex;
+flex-direction:column;
+align-items:center;
+}
+
+/* MAIN */
+
+main{
+max-width:750px;
+margin:30px auto;
+padding:0 15px;
+}
+
+section{
+background-color:#fff;
+padding:25px;
+border-radius:18px;
+box-shadow:0 4px 12px rgba(0,0,0,0.15);
+}
+
+h2{
+margin-bottom:15px;
+font-size:1.6rem;
+color:#8B4513;
+}
+
+.assignment-item{
+background:#f7f7f7;
+padding:15px;
+border-radius:12px;
+margin-bottom:15px;
+}
+
+.assignment-item p{
+margin-bottom:6px;
+font-size:0.95rem;
+}
+
+.assignment-item strong{
+color:#A0522D;
+}
+
+/* BUTTONS */
+
+.button-row{
+display:flex;
+gap:10px;
+margin-top:10px;
+}
+
+.view-btn{
+flex:1;
+padding:10px;
+border:none;
+border-radius:8px;
+color:white;
+font-weight:bold;
+cursor:pointer;
+background:#555;
+}
+
+.view-btn:hover{
+background:#333;
+}
+
+.view-btn.disabled{
+background:#999;
+cursor:not-allowed;
+}
+
+/* EMPTY */
+
+.empty-state{
+text-align:center;
+font-size:1.1rem;
+padding:20px;
+}
+
+/* FOOTER */
+
+footer{
+position:fixed;
+bottom:0;
+width:100%;
+text-align:center;
+padding:12px;
+background-color:#A0522D;
+color:#fff;
+border-top-left-radius:25px;
+border-top-right-radius:25px;
+font-size:0.85rem;
+}
+
+</style>
+
+</head>
+
+<body>
+
+<header>
+<h1><a href="/expert">Electro-Aid Technologies</a></h1>
+<p>Expert Assignment Dashboard</p>
+</header>
+
+<div class="top-menu">
+<a href="/expert">🏠 Home</a>
+<a href="/expert/assignments">📁 Assignments</a>
+<a href="/expert/invoice">💰 Invoice</a>
+<a href="/expert/logout">🔐 Logout</a>
+</div>
+
+<main>
+
+<section>
+
+<h2>
+Available Assignments (<span id="count">0</span>)
+</h2>
+
+<div id="assignmentsContainer"></div>
+
+</section>
+
+</main>
+
+<footer>
+<p>&copy; 2026 Electro-Aid Technologies</p>
+</footer>
+
+<script>
+
+/* ================= SECURITY ================= */
+
+function escapeHTML(text){
+if(!text) return ""
+return text
+.replace(/&/g,"&amp;")
+.replace(/</g,"&lt;")
+.replace(/>/g,"&gt;")
+.replace(/"/g,"&quot;")
+.replace(/'/g,"&#039;")
+}
+
+/* ================= DATE ================= */
+
+function formatDueDate(dueDate){
+if(!dueDate) return "N/A"
+try{
+return new Date(dueDate).toLocaleString()
+}catch{
+return dueDate
+}
+}
+
+/* ================= LOAD ================= */
+
+async function loadAssignments(){
+
+try{
+
+const res = await fetch(
+"/expert/assignments/pending/api/pending-assignments",
+{credentials:"include"}
+)
+
+if(!res.ok){
+throw new Error("Failed to load")
+}
+
+const assignments = await res.json()
+
+const container = document.getElementById("assignmentsContainer")
+const countSpan = document.getElementById("count")
+
+container.innerHTML = ""
+
+if(!Array.isArray(assignments) || assignments.length === 0){
+
+countSpan.innerText = 0
+
+container.innerHTML = `
+<div class="empty-state">
+No assignments available right now.
+</div>
+`
+
+return
+}
+
+countSpan.innerText = assignments.length
+
+let html = ""
+
+assignments.forEach(a =>{
+
+const reference = escapeHTML(a.reference)
+const title = escapeHTML(a.title)
+const client = escapeHTML(a.CLIENT_NAME)
+const dueDate = formatDueDate(a.dueDate)
+const payout = Number(a.payout || 0).toFixed(2)
+
+const isLocked = a.approvalLocked
+
+html += `
+
+<div class="assignment-item">
+
+<p><strong>Reference Code:</strong> ${reference}</p>
+<p><strong>Title:</strong> ${title}</p>
+<p><strong>Client:</strong> ${client}</p>
+<p><strong>Due Date & Time:</strong> ${dueDate}</p>
+<p><strong>Payout:</strong> $${payout}</p>
+
+${
+isLocked
+? `<p style="color:#B22222;"><strong>Status:</strong> Awaiting Admin Approval</p>`
+: ``
+}
+
+<div class="button-row">
+
+<button class="view-btn ${isLocked ? "disabled" : ""}"
+${isLocked ? "disabled" : ""}
+onclick="viewAssignment('${reference}')">
+
+${isLocked ? "Locked" : "View Full Work"}
+
+</button>
+
+</div>
+
+</div>
+
+`
+
+})
+
+container.innerHTML = html
+
+}catch(err){
+
+console.error(err)
+
+document.getElementById("assignmentsContainer").innerHTML = `
+<div class="empty-state">
+Failed to load assignments.
+</div>
+`
+
+}
+
+}
+
+/* ================= VIEW ================= */
+
+function viewAssignment(reference){
+const safeRef = encodeURIComponent(reference)
+window.location.href = `/expert/assignments/pending/view?ref=${safeRef}`
+}
+
+/* ================= AUTO REFRESH ================= */
+
+let refreshInterval = setInterval(loadAssignments,30000)
+
+document.addEventListener("visibilitychange",()=>{
+
+if(document.hidden){
+clearInterval(refreshInterval)
+}else{
+loadAssignments()
+refreshInterval = setInterval(loadAssignments,30000)
+}
+
+})
+
+/* ================= INIT ================= */
+
+loadAssignments()
+
+</script>
+
+</body>
+</html>

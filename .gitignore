@@ -1,0 +1,24 @@
+# dependencies
+node_modules/
+
+# secret env files
+config.env
+.env
+
+# uploads
+uploads/
+public/uploads/
+
+# db backups / sql dumps
+db/
+
+# logs
+*.log
+npm-debug.log*
+
+# local editor files
+.vscode/
+
+# system junk
+.DS_Store
+Thumbs.db

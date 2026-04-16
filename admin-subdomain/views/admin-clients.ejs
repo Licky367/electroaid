@@ -1,0 +1,212 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+<title>Admin | Client Accounts</title>
+
+<style>
+*{ margin:0; padding:0; box-sizing:border-box; }
+
+body{
+font-family:Arial, sans-serif;
+background:#8B4513;
+color:#333;
+padding-top:110px;
+padding-bottom:90px;
+}
+
+main{
+max-width:900px;
+margin:25px auto;
+padding:0 15px;
+}
+
+/* SEARCH */
+.search-bar{
+display:flex;
+gap:10px;
+margin-bottom:20px;
+}
+
+.search-bar input{
+flex:1;
+padding:10px;
+border-radius:8px;
+border:1px solid #ccc;
+}
+
+.search-bar button{
+background:#D2691E;
+color:white;
+border:none;
+padding:10px 15px;
+border-radius:8px;
+cursor:pointer;
+}
+
+/* CARD */
+.client-card{
+background:white;
+padding:18px;
+border-radius:15px;
+margin-bottom:18px;
+display:flex;
+gap:15px;
+box-shadow:0 4px 12px rgba(0,0,0,0.2);
+}
+
+.avatar{
+width:70px;
+height:70px;
+border-radius:50%;
+object-fit:cover;
+border:3px solid #D2691E;
+}
+
+.details{ flex:1; }
+
+.details h3{
+color:#8B4513;
+margin-bottom:6px;
+}
+
+.info{
+font-size:0.9rem;
+margin-bottom:4px;
+}
+
+.actions{ margin-top:10px; }
+
+button{
+padding:8px 12px;
+border:none;
+border-radius:6px;
+font-size:0.85rem;
+cursor:pointer;
+}
+
+.delete{
+background:#dc3545;
+color:white;
+}
+
+/* PAGINATION */
+.pagination{
+display:flex;
+justify-content:center;
+gap:10px;
+margin-top:20px;
+}
+
+.pagination a{
+background:#A0522D;
+color:white;
+padding:8px 14px;
+border-radius:6px;
+text-decoration:none;
+}
+
+/* FOOTER */
+footer{
+position:fixed;
+bottom:0;
+width:100%;
+background:#A0522D;
+text-align:center;
+padding:12px;
+color:white;
+border-top-left-radius:25px;
+border-top-right-radius:25px;
+font-size:0.85rem;
+}
+</style>
+</head>
+
+<body>
+
+<!-- ✅ HEADER -->
+<%- include("partials/header") %>
+
+<!-- ✅ TOP MENU -->
+<%- include("partials/top-menu", { admin }) %>
+
+<main>
+
+<!-- ================= SEARCH ================= -->
+<form class="search-bar" method="GET" action="/admin/clients">
+<input 
+type="text" 
+name="search" 
+value="<%= search || '' %>" 
+placeholder="Search by name, email or phone">
+<button type="submit">Search</button>
+</form>
+
+<div>
+
+<% if(!clients || clients.length === 0){ %>
+<p style="color:white;text-align:center;">No clients found.</p>
+<% } %>
+
+<% (clients || []).forEach(client => { %>
+
+<div class="client-card">
+
+<img 
+src="<%= client.CLIENT_PROFILE_IMAGE || '/images/default.png' %>" 
+class="avatar"
+onerror="this.src='/images/default.png'"
+>
+
+<div class="details">
+
+<h3><%= client.CLIENT_NAME || '' %></h3>
+
+<div class="info"><strong>Email:</strong> <%= client.CLIENT_EMAIL || '' %></div>
+<div class="info"><strong>Phone:</strong> <%= client.CLIENT_PHONE_NUMBER || 'Not provided' %></div>
+<div class="info">
+<strong>Joined:</strong> 
+<%= client.createdAt ? new Date(client.createdAt).toLocaleDateString() : '' %>
+</div>
+<div class="info"><strong>Assignments:</strong> <%= client.assignments || 0 %></div>
+
+<div class="actions">
+<form 
+method="POST" 
+action="/admin/clients/delete/<%= client.id %>" 
+onsubmit="return confirm('Delete this client permanently?')"
+>
+<button class="delete">Delete</button>
+</form>
+</div>
+
+</div>
+</div>
+
+<% }) %>
+
+</div>
+
+<!-- ================= PAGINATION ================= -->
+<div class="pagination">
+
+<% if(page > 1){ %>
+<a href="/admin/clients?page=<%= page - 1 %>&search=<%= search %>">Previous</a>
+<% } %>
+
+<% if(clients && clients.length === 10){ %>
+<a href="/admin/clients?page=<%= page + 1 %>&search=<%= search %>">Next</a>
+<% } %>
+
+</div>
+
+</main>
+
+<footer>
+<p>© <%= new Date().getFullYear() %> Electro-Aid Technologies</p>
+</footer>
+
+</body>
+</html>
