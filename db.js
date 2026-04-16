@@ -1,70 +1,33 @@
-const mysql = require("mysql2");
+const mongoose = require("mongoose");
 
 /* ===================================================== */
-/* ================= CONFIG ============================= */
+/* ================= CONNECTION ======================== */
 /* ===================================================== */
-const dbConfig = {
-    host: process.env.DB_HOST,
-    port: Number(process.env.DB_PORT) || 3306,
-    user: process.env.DB_USER,
-    password: process.env.DB_PASSWORD,
-    database: process.env.DB_NAME,
-
-    waitForConnections: true,
-    connectionLimit: 10,
-    queueLimit: 0,
-
-    connectTimeout: 10000,
-    enableKeepAlive: true,
-    keepAliveInitialDelay: 0
-};
-
-/* ===================================================== */
-/* ================= SSL (OPTIONAL) ==================== */
-/* ===================================================== */
-/*
-If using external cloud DB that requires SSL,
-uncomment below:
-
-dbConfig.ssl = {
-    rejectUnauthorized: false
-};
-*/
-
-/* ===================================================== */
-/* ================= POOL ============================== */
-/* ===================================================== */
-const pool = mysql.createPool(dbConfig);
-const promisePool = pool.promise();
-
-/* ===================================================== */
-/* ================= TEST CONNECTION =================== */
-/* ===================================================== */
-async function testConnection() {
+async function connectDB() {
     try {
-        const conn = await promisePool.getConnection();
+        await mongoose.connect(process.env.MONGO_URI);
 
-        console.log("✅ Database connected successfully");
-        console.log(`📦 DB Host: ${process.env.DB_HOST}`);
-        console.log(`🗄️ Database: ${process.env.DB_NAME}`);
+        console.log("✅ MongoDB connected successfully");
+        console.log("📦 Database:", mongoose.connection.name);
 
-        conn.release();
+        mongoose.connection.on("error", (err) => {
+            console.error("❌ MongoDB error:", err.message);
+        });
+
+        mongoose.connection.on("disconnected", () => {
+            console.warn("⚠️ MongoDB disconnected");
+        });
+
     } catch (err) {
-        console.error("❌ Database connection failed");
+        console.error("❌ MongoDB connection failed");
         console.error("Reason:", err.message);
 
-        // Critical in production:
-        // prevents app from staying in broken loading state
+        // stop server if DB is critical
         process.exit(1);
     }
 }
 
-/* Run startup test */
-testConnection();
-
 /* ===================================================== */
 /* ================= EXPORT ============================ */
 /* ===================================================== */
-module.exports = {
-    pool: promisePool
-};
+module.exports = connectDB;
