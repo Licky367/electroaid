@@ -6,11 +6,12 @@ if (process.env.NODE_ENV !== "production") {
 const express = require("express");
 const path = require("path");
 const session = require("express-session");
-const MySQLStore = require("express-mysql-session")(session);
+const MongoStore = require("connect-mongo");
 const http = require("http");
 const { Server } = require("socket.io");
 
-const db = require("./db");
+const connectDB = require("./db");
+const seedAdmin = require("./seedAdmin");
 
 /* ================= INIT ================= */
 const app = express();
@@ -55,21 +56,16 @@ app.set("views", [
 ]);
 
 /* ================= SESSION ================= */
-const sessionStore = new MySQLStore(
-    {
-        expiration: 1000 * 60 * 60 * 24,
-        createDatabaseTable: true
-    },
-    db.pool
-);
-
 const sessionMiddleware = session({
-    key: "electroaid_sid",
+    name: "electroaid_sid",
     secret: process.env.SESSION_SECRET || "fallback_secret_change_me",
-    store: sessionStore,
     resave: false,
     saveUninitialized: false,
     proxy: isProduction,
+    store: MongoStore.create({
+        mongoUrl: process.env.MONGO_URI,
+        collectionName: "sessions"
+    }),
     cookie: {
         maxAge: 1000 * 60 * 60 * 24,
         httpOnly: true,
@@ -83,6 +79,7 @@ const sessionMiddleware = session({
 
 app.use(sessionMiddleware);
 
+/* ================= SOCKET SESSION ================= */
 io.use((socket, next) => {
     sessionMiddleware(socket.request, {}, next);
 });
@@ -212,10 +209,25 @@ app.use((err, req, res, next) => {
 });
 
 /* ===================================================== */
-/* ================= START ============================== */
+/* ================= START SERVER ======================= */
 /* ===================================================== */
-server.listen(PORT, "0.0.0.0", () => {
-    console.log(`🚀 ElectroAid running on port ${PORT}`);
-    console.log(`📁 Uploads directory: ${uploadsDir}`);
-    console.log(`🌍 Mode: ${process.env.NODE_ENV}`);
-});
+async function startServer() {
+    try {
+        // ✅ Connect DB first
+        await connectDB();
+
+        // ✅ Then run seed safely
+        await seedAdmin();
+
+        server.listen(PORT, "0.0.0.0", () => {
+            console.log(`🚀 ElectroAid running on port ${PORT}`);
+            console.log(`📁 Uploads directory: ${uploadsDir}`);
+            console.log(`🌍 Mode: ${process.env.NODE_ENV}`);
+        });
+    } catch (err) {
+        console.error("❌ Failed to start server:", err);
+        process.exit(1);
+    }
+}
+
+startServer();
