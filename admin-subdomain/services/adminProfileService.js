@@ -1,3 +1,5 @@
+const { Admin } = require("../models");
+
 exports.updateProfile = async (req) => {
 
     const adminId = req.session.admin;
@@ -15,43 +17,47 @@ exports.updateProfile = async (req) => {
         imagePath = `/uploads/admin/${req.file.filename}`;
     }
 
-    /* 🔐 CHECK STATUS */
-    const [currentAdmin] = await db.query(
-        "SELECT status FROM admins WHERE id=?",
-        [adminId]
-    );
+    /* 🔐 FETCH CURRENT ADMIN */
+    const currentAdmin = await Admin.findById(adminId);
 
-    if (currentAdmin[0].status !== "active") {
+    if (!currentAdmin) {
+        throw { status: 404, message: "Admin not found" };
+    }
+
+    /* 🔐 CHECK STATUS */
+    if (currentAdmin.status !== "active") {
         throw { status: 403, message: "Account not active" };
     }
 
     /* 🔒 RESTRICT EMAIL CHANGE */
     if (req.session.admin.role !== "SUPER_ADMIN") {
-        const [rows] = await db.query(
-            "SELECT ADMIN_EMAIL FROM admins WHERE id=?",
-            [adminId]
-        );
-        ADMIN_EMAIL = rows[0].ADMIN_EMAIL;
+        ADMIN_EMAIL = currentAdmin.ADMIN_EMAIL;
     }
 
     /* 🚫 CHECK PHONE DUPLICATE */
     if (ADMIN_PHONE) {
-        const [phoneCheck] = await db.query(
-            "SELECT id FROM admins WHERE ADMIN_PHONE=? AND id != ?",
-            [ADMIN_PHONE, adminId]
-        );
+        const phoneCheck = await Admin.findOne({
+            ADMIN_PHONE,
+            _id: { $ne: adminId }
+        });
 
-        if (phoneCheck.length) {
+        if (phoneCheck) {
             throw { status: 400, message: "Phone already in use" };
         }
     }
 
     /* ✅ UPDATE */
-    await db.query(`
-        UPDATE admins
-        SET ADMIN_NAME=?, ADMIN_EMAIL=?, ADMIN_PHONE=?, ADMIN_PROFILE_IMAGE=?
-        WHERE id=?
-    `, [ADMIN_NAME, ADMIN_EMAIL, ADMIN_PHONE, imagePath, adminId]);
+    await Admin.updateOne(
+        { _id: adminId },
+        {
+            $set: {
+                ADMIN_NAME,
+                ADMIN_EMAIL,
+                ADMIN_PHONE,
+                ADMIN_PROFILE_IMAGE: imagePath
+            }
+        }
+    );
 
     return {
         ADMIN_NAME,
