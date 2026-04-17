@@ -1,115 +1,95 @@
-require("dotenv").config({ path: "../config.env" })
+const express = require("express");
+const router = express.Router();
 
-const express = require("express")
-const router = express.Router()
+const { Assignment, AssignmentFile } = require("../../models");
 
 /* ============================= */
 /* AUTH (EXPERT) */
 /* ============================= */
-
 function requireExpert(req, res, next) {
     if (!req.session.expert) {
-        return res.status(401).send("Unauthorized")
+        return res.status(401).send("Unauthorized");
     }
-    next()
+    next();
 }
 
 /* ============================= */
 /* LOAD WAITING PAGE */
 /* ============================= */
-
 router.get("/waiting", requireExpert, (req, res) => {
-
     res.render("waiting", {
-        EXPERT_NAME: req.session.EXPERT_NAME || "Expert"
-    })
-
-})
+        EXPERT_NAME: req.session.expert.name || "Expert"
+    });
+});
 
 /* ============================= */
 /* LOAD VIEW PAGE */
 /* ============================= */
-
 router.get("/waiting-view", requireExpert, (req, res) => {
-
     res.render("waiting-view", {
-        EXPERT_NAME: req.session.EXPERT_NAME || "Expert"
-    })
-
-})
+        EXPERT_NAME: req.session.expert.name || "Expert"
+    });
+});
 
 /* ============================= */
 /* GET WAITING ASSIGNMENTS */
 /* ============================= */
-
 router.get("/api/waiting-assignments", requireExpert, async (req, res) => {
-
     try {
+        const expertId = req.session.expert.id;
 
-        const EXPERT_ID = req.session.EXPERT_ID
+        const assignments = await Assignment.find({
+            EXPERT_ID: expertId,
+            status: "accepted"
+        })
+        .select("reference title dueDate acceptedAt")
+        .sort({ acceptedAt: -1 })
+        .lean();
 
-        const [rows] = await db.query(
-            `SELECT reference, title, dueDate, acceptedAt
-             FROM assignments
-             WHERE EXPERT_ID=? 
-             AND status='accepted'   -- ✅ FIXED HERE
-             ORDER BY acceptedAt DESC`,
-            [EXPERT_ID]
-        )
-
-        res.json(rows)
+        res.json(assignments);
 
     } catch (err) {
-        console.error(err)
-        res.status(500).json({ message: "Server error" })
+        console.error(err);
+        res.status(500).json({ message: "Server error" });
     }
-
-})
+});
 
 /* ============================= */
 /* GET SINGLE ASSIGNMENT */
 /* ============================= */
-
 router.get("/api/waiting-assignment/:reference", requireExpert, async (req, res) => {
-
     try {
-
-        const EXPERT_ID = req.session.EXPERT_ID
-        const reference = req.params.reference
+        const expertId = req.session.expert.id;
+        const reference = req.params.reference;
 
         /* ASSIGNMENT */
+        const assignment = await Assignment.findOne({
+            reference,
+            EXPERT_ID: expertId
+        })
+        .select("reference title CLIENT_NAME dueDate instructions status")
+        .lean();
 
-        const [rows] = await db.query(
-            `SELECT reference, title, CLIENT_NAME, dueDate, instructions, status
-             FROM assignments
-             WHERE reference=? AND EXPERT_ID=?`,
-            [reference, EXPERT_ID]
-        )
-
-        if (!rows.length) {
-            return res.status(404).json({ message: "Assignment not found" })
+        if (!assignment) {
+            return res.status(404).json({ message: "Assignment not found" });
         }
 
-        const assignment = rows[0]
-
         /* FILES */
+        const files = await AssignmentFile.find({ reference })
+            .select("fileUrl fileName -_id")
+            .lean();
 
-        const [files] = await db.query(
-            `SELECT fileUrl AS url, fileName AS name
-             FROM assignment_files
-             WHERE reference=?`,
-            [reference]
-        )
+        assignment.files = files.map(f => ({
+            url: f.fileUrl,
+            name: f.fileName
+        }));
 
-        assignment.files = files
-
-        res.json(assignment)
+        res.json(assignment);
 
     } catch (err) {
-        console.error(err)
-        res.status(500).json({ message: "Server error" })
+        console.error(err);
+        res.status(500).json({ message: "Server error" });
     }
+});
 
-})
-
-module.exports = router
+module.exports = router;
