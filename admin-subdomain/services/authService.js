@@ -2,7 +2,7 @@ const { hashPassword, comparePassword } = require("../utils/hash");
 const { generateToken } = require("../utils/tokens");
 const { sendEmail } = require("../utils/mailer");
 
-const { Admin, AdminInvite } = require("../models");
+const { Admin, AdminInvite } = require("../../models");
 
 /* ================= INVITE VALIDATION ================= */
 exports.validateInvite = async (token) => {
