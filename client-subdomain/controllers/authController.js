@@ -88,7 +88,7 @@ exports.postLogin = async (req, res) => {
 
             if (match) {
                 const hashed = await bcrypt.hash(CLIENT_PASSWORD, 10);
-                await authService.updatePassword(user.id, hashed);
+                await authService.updatePassword(user._id, hashed); // ✅ FIXED
             }
         }
 
@@ -103,15 +103,15 @@ exports.postLogin = async (req, res) => {
                 return res.render("login", { error: "Session error" });
             }
 
-            /* ✅ BACKWARD COMPATIBILITY (KEEP THESE) */
-            req.session.clientId = user.id;
+            /* ✅ BACKWARD COMPATIBILITY */
+            req.session.clientId = user._id; // ✅ FIXED
             req.session.CLIENT_NAME = user.CLIENT_NAME;
-            req.session.CLIENT_ID = user.CLIENT_ID;
+            req.session.CLIENT_ID = user._id; // ✅ FIXED (Mongo has no CLIENT_ID)
             req.session.CLIENT_EMAIL = user.CLIENT_EMAIL;
 
-            /* 🔥 NEW CLEAN CLIENT OBJECT */
+            /* 🔥 CLEAN CLIENT OBJECT */
             req.session.client = {
-                id: user.id,
+                id: user._id, // ✅ FIXED
                 name: user.CLIENT_NAME,
                 image: user.CLIENT_PROFILE_IMAGE || null
             };
@@ -135,7 +135,7 @@ exports.logout = (req, res) => {
             return res.redirect("/");
         }
 
-        res.clearCookie("electroaid_sid"); // matches your session key
+        res.clearCookie("electroaid_sid");
         res.redirect("/auth/login");
     });
 };
@@ -160,7 +160,7 @@ exports.postForgotPassword = async (req, res) => {
         const token = generateToken();
         const expires = new Date(Date.now() + 1000 * 60 * 30);
 
-        await authService.saveResetToken(user.id, token, expires);
+        await authService.saveResetToken(user._id, token, expires); // ✅ FIXED
 
         const resetLink =
             `${process.env.CLIENT_AUTH_BASE_URL}?token=${token}`;
