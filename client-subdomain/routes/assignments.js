@@ -1,34 +1,44 @@
 const express = require("express");
 const router = express.Router();
 
-const db = require("../../db");
+const { Assignment } = require("../../models");
 
-/* ✅ USE CENTRALIZED AUTH */
+/* ✅ CENTRALIZED AUTH */
 const {
-    requireClient,
     requireClientAPI
 } = require("../middleware/clientAuth");
 
+
 /* ================= ASSIGNMENTS PAGE ================= */
 router.get("/", (req, res) => {
-    // 🔥 No need for optional auth anymore
     // attachClient already runs globally
-
     res.render("assignments");
 });
 
+
 /* ================= ASSIGNMENT SUMMARY (API) ================= */
 router.get("/summary", requireClientAPI, async (req, res) => {
-    try {
-        const clientId = req.session.clientId; // ✅ source of truth
 
-        const [rows] = await db.query(
-            `SELECT status, COUNT(*) as count
-             FROM assignments
-             WHERE CLIENT_ID = ?
-             GROUP BY status`,
-            [clientId]
-        );
+    try {
+
+        const clientId = req.session.client.id;
+
+        /* ============================= */
+        /* MONGOOSE AGGREGATION */
+/* ============================= */
+        const rows = await Assignment.aggregate([
+            {
+                $match: {
+                    CLIENT_ID: clientId
+                }
+            },
+            {
+                $group: {
+                    _id: "$status",
+                    count: { $sum: 1 }
+                }
+            }
+        ]);
 
         const summary = {
             pending: 0,
@@ -39,11 +49,16 @@ router.get("/summary", requireClientAPI, async (req, res) => {
         };
 
         rows.forEach(row => {
-            const status = row.status;
 
-            if (status === "pending") summary.pending = row.count;
+            const status = row._id;
 
-            else if (status === "accepted") summary.accepted = row.count;
+            if (status === "pending") {
+                summary.pending = row.count;
+            }
+
+            else if (status === "accepted") {
+                summary.accepted = row.count;
+            }
 
             else if (
                 status === "In Progress" ||
@@ -52,14 +67,19 @@ router.get("/summary", requireClientAPI, async (req, res) => {
                 summary.work += row.count;
             }
 
-            else if (status === "completed") summary.completed = row.count;
+            else if (status === "completed") {
+                summary.completed = row.count;
+            }
 
-            else if (status === "declined") summary.declined = row.count;
+            else if (status === "declined") {
+                summary.declined = row.count;
+            }
         });
 
         res.json(summary);
 
     } catch (err) {
+
         console.error(err);
 
         res.status(500).json({
