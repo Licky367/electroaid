@@ -1,7 +1,7 @@
 const express = require("express");
 const router = express.Router();
 
-const { Client } = require("../models");
+const { Client } = require("../../models");
 
 /* ===============================
 HOME (ENTRY POINT ONLY)
