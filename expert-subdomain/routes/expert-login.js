@@ -1,10 +1,9 @@
-require("dotenv").config({ path: "../config.env" });
-
 const express = require("express");
 const router = express.Router();
 
 const bcrypt = require("bcrypt");
-const db = require("../../db");
+
+const { Expert } = require("../../models");
 
 /* ================== REG_NO VALIDATION ================== */
 function validateREGNO(reg) {
@@ -13,20 +12,19 @@ function validateREGNO(reg) {
 
 /* ===================================================== */
 /* ================= VIEW =============================== */
-/* GET /expert/login */
 /* ===================================================== */
-
 router.get("/login", (req, res) => {
     res.render("expert-login");
 });
 
+
 /* ===================================================== */
 /* ================= LOGIN ============================== */
-/* POST /expert/login */
 /* ===================================================== */
-
 router.post("/login", async (req, res) => {
+
     try {
+
         const { REG_NO, EXPERT_PASSWORD } = req.body;
 
         /* ================== VALIDATION ================== */
@@ -44,21 +42,18 @@ router.post("/login", async (req, res) => {
             });
         }
 
-        /* ================== FIND EXPERT ================== */
-        const [rows] = await db.execute(
-            `SELECT id, EXPERT_NAME, REG_NO, EXPERT_PASSWORD 
-             FROM experts 
-             WHERE REG_NO = ?`,
-            [REG]
-        );
 
-        if (rows.length === 0) {
+        /* ================== FIND EXPERT ================== */
+        const expert = await Expert.findOne({
+            REG_NO: REG
+        }).select("EXPERT_NAME REG_NO EXPERT_PASSWORD").lean();
+
+        if (!expert) {
             return res.status(400).json({
                 message: "Invalid credentials"
             });
         }
 
-        const expert = rows[0];
 
         /* ================== CHECK PASSWORD ================== */
         const isMatch = await bcrypt.compare(
@@ -72,37 +67,44 @@ router.post("/login", async (req, res) => {
             });
         }
 
-        /* ================== SESSION (FIXED) ================== */
+
+        /* ================== SESSION ================== */
         req.session.expert = {
-            id: expert.id,
+            id: expert._id, // 🔥 Mongo uses _id
             name: expert.EXPERT_NAME,
             reg_no: expert.REG_NO
         };
+
 
         /* ================== SUCCESS ================== */
         return res.redirect("/expert");
 
     } catch (error) {
+
         console.error(error);
+
         return res.status(500).json({
             message: "Server error"
         });
     }
 });
 
+
 /* ===================================================== */
 /* ================= LOGOUT ============================= */
-/* GET /expert/logout */
 /* ===================================================== */
-
 router.get("/logout", (req, res) => {
+
     req.session.destroy((err) => {
         if (err) {
             console.error(err);
             return res.status(500).send("Could not log out");
         }
+
         res.redirect("/expert/login");
     });
+
 });
+
 
 module.exports = router;
