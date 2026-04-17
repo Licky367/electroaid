@@ -1,7 +1,7 @@
 const {
     Client,
     Assignment
-} = require("../models");
+} = require("../../models");
 
 /* ================= FETCH CLIENTS ================= */
 
