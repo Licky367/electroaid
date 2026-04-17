@@ -1,7 +1,8 @@
-const express = require("express")
-const router = express.Router()
-const paypal = require("@paypal/checkout-server-sdk")
-const db = require("../../db")
+const express = require("express");
+const router = express.Router();
+const paypal = require("@paypal/checkout-server-sdk");
+
+const { Payment, Assignment } = require("../../models");
 
 /* ============================= */
 /* PAYPAL CLIENT */
@@ -9,8 +10,9 @@ const db = require("../../db")
 const paypalEnv = new paypal.core.SandboxEnvironment(
     process.env.PAYPAL_CLIENT_ID,
     process.env.PAYPAL_CLIENT_SECRET
-)
-const paypalClient = new paypal.core.PayPalHttpClient(paypalEnv)
+);
+
+const paypalClient = new paypal.core.PayPalHttpClient(paypalEnv);
 
 /* ============================= */
 /* CONSTANTS */
@@ -19,51 +21,49 @@ const PAYMENT_TYPE = {
     DEPOSIT: "deposit",
     FULL: "full",
     ARREARS: "arrears"
-}
+};
 
 /* ============================= */
 /* UPDATE ASSIGNMENT */
 /* ============================= */
 async function updateAssignmentPayment(reference, clientId, type, paidAmount) {
 
-    const [rows] = await db.query(
-        `SELECT budget, totalPaid, depositAmount, depositPaid 
-         FROM assignments 
-         WHERE reference=? AND CLIENT_ID=?`,
-        [reference, clientId]
-    )
+    const assignment = await Assignment.findOne({
+        reference,
+        CLIENT_ID: clientId
+    }).select("budget totalPaid depositAmount depositPaid");
 
-    if (!rows.length) return
+    if (!assignment) return;
 
-    const assignment = rows[0]
-
-    let newTotalPaid = (assignment.totalPaid || 0) + paidAmount
-    let newDepositPaid = assignment.depositPaid || 0
+    let newTotalPaid = (assignment.totalPaid || 0) + paidAmount;
+    let newDepositPaid = assignment.depositPaid || 0;
 
     if (type === PAYMENT_TYPE.DEPOSIT) {
-        newDepositPaid = assignment.depositAmount
+        newDepositPaid = assignment.depositAmount;
     }
 
     if (type === PAYMENT_TYPE.FULL) {
-        newDepositPaid = assignment.budget
-        newTotalPaid = assignment.budget
+        newDepositPaid = assignment.budget;
+        newTotalPaid = assignment.budget;
     }
 
     if (newTotalPaid > assignment.budget) {
-        newTotalPaid = assignment.budget
+        newTotalPaid = assignment.budget;
     }
 
-    let statusQuery = ""
+    const update = {
+        totalPaid: newTotalPaid,
+        depositPaid: newDepositPaid
+    };
+
     if (type === PAYMENT_TYPE.DEPOSIT || type === PAYMENT_TYPE.FULL) {
-        statusQuery = `, status='In Progress'`
+        update.status = "In Progress";
     }
 
-    await db.query(
-        `UPDATE assignments 
-         SET totalPaid=?, depositPaid=? ${statusQuery}
-         WHERE reference=? AND CLIENT_ID=?`,
-        [newTotalPaid, newDepositPaid, reference, clientId]
-    )
+    await Assignment.updateOne(
+        { reference, CLIENT_ID: clientId },
+        update
+    );
 }
 
 /* ============================= */
@@ -72,41 +72,38 @@ async function updateAssignmentPayment(reference, clientId, type, paidAmount) {
 router.get("/paypal/success", async (req, res) => {
 
     try {
-        const { token } = req.query
+        const { token } = req.query;
 
-        if (!token) return res.redirect("/assignments/work")
+        if (!token) return res.redirect("/assignments/work");
 
         /* 🔍 Find payment */
-        const [rows] = await db.query(
-            `SELECT * FROM payments WHERE externalRef=? LIMIT 1`,
-            [token]
-        )
+        const payment = await Payment.findOne({
+            externalRef: token
+        });
 
-        if (!rows.length) return res.redirect("/assignments/work")
-
-        const payment = rows[0]
+        if (!payment) return res.redirect("/assignments/work");
 
         /* ✅ Prevent duplicate execution */
         if (payment.status === "SUCCESS") {
-            return res.redirect("/assignments/work")
+            return res.redirect("/assignments/work");
         }
 
         /* ============================= */
         /* CAPTURE PAYMENT */
         /* ============================= */
-        const request = new paypal.orders.OrdersCaptureRequest(token)
-        request.requestBody({})
+        const request = new paypal.orders.OrdersCaptureRequest(token);
+        request.requestBody({});
 
-        const capture = await paypalClient.execute(request)
+        const capture = await paypalClient.execute(request);
 
-        const status = capture.result.status
+        const status = capture.result.status;
 
         if (status === "COMPLETED") {
 
-            await db.query(
-                `UPDATE payments SET status='SUCCESS' WHERE id=?`,
-                [payment.id]
-            )
+            await Payment.updateOne(
+                { _id: payment._id },
+                { status: "SUCCESS" }
+            );
 
             /* ✅ ONLY deposit/full updates assignment */
             if (
@@ -118,23 +115,23 @@ router.get("/paypal/success", async (req, res) => {
                     payment.CLIENT_ID,
                     payment.type,
                     payment.amount_USD
-                )
+                );
             }
 
         } else {
 
-            await db.query(
-                `UPDATE payments SET status='FAILED' WHERE id=?`,
-                [payment.id]
-            )
+            await Payment.updateOne(
+                { _id: payment._id },
+                { status: "FAILED" }
+            );
         }
 
-        return res.redirect("/assignments/work")
+        return res.redirect("/assignments/work");
 
     } catch (err) {
-        console.error("❌ PayPal success error:", err)
-        return res.redirect("/assignments/work")
+        console.error("❌ PayPal success error:", err);
+        return res.redirect("/assignments/work");
     }
-})
+});
 
-module.exports = router
+module.exports = router;
