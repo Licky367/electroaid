@@ -1,74 +1,69 @@
-require("dotenv").config({ path: "../config.env" })
+const express = require("express");
+const fs = require("fs");
+const path = require("path");
+const multer = require("multer");
 
-const express = require("express")
-const fs = require("fs")
-const path = require("path")
-const multer = require("multer")
-const db = require("../../db")
+const { Assignment, Submission } = require("../../models");
 
-const router = express.Router()
+const router = express.Router();
 
 /* ============================= */
 /* STATIC FILES */
 /* ============================= */
-
-router.use("/uploads", express.static(path.join(__dirname, "../uploads")))
+router.use("/uploads", express.static(path.join(__dirname, "../uploads")));
 
 /* ============================= */
 /* UPLOAD SETUP */
 /* ============================= */
-
-const BASE_UPLOAD = path.join(__dirname, "../uploads/expert-submissions")
+const BASE_UPLOAD = path.join(__dirname, "../uploads/expert-submissions");
 
 if (!fs.existsSync(BASE_UPLOAD)) {
-    fs.mkdirSync(BASE_UPLOAD, { recursive: true })
+    fs.mkdirSync(BASE_UPLOAD, { recursive: true });
 }
 
 const storage = multer.diskStorage({
     destination: function (req, file, cb) {
-        const reference = req.body.reference
-        const dir = path.join(BASE_UPLOAD, `assignment-${reference}`)
+        const reference = req.body.reference;
+        const dir = path.join(BASE_UPLOAD, `assignment-${reference}`);
 
         if (!fs.existsSync(dir)) {
-            fs.mkdirSync(dir, { recursive: true })
+            fs.mkdirSync(dir, { recursive: true });
         }
 
-        cb(null, dir)
+        cb(null, dir);
     },
     filename: function (req, file, cb) {
-        const unique = Date.now() + "-" + Math.round(Math.random() * 1e9)
-        const safeName = file.originalname.replace(/\s+/g, "_")
-        cb(null, unique + "-" + safeName)
+        const unique = Date.now() + "-" + Math.round(Math.random() * 1e9);
+        const safeName = file.originalname.replace(/\s+/g, "_");
+        cb(null, unique + "-" + safeName);
     }
-})
+});
 
 const upload = multer({
     storage,
     limits: { fileSize: 50 * 1024 * 1024 }
-})
+});
 
 /* ============================= */
 /* AUTH */
 /* ============================= */
-
 function requireExpert(req, res, next) {
-    if (!req.session.EXPERT_ID) {
-        return res.status(401).json({ message: "Expert login required" })
+    if (!req.session.expert) {
+        return res.status(401).json({ message: "Expert login required" });
     }
-    next()
+    next();
 }
 
 /* ============================= */
 /* VIEW ROUTES */
 /* ============================= */
-
 router.get("/work", requireExpert, (req, res) => {
-    res.render("expert-work")
-})
+    res.render("expert-work");
+});
 
 router.get("/view", requireExpert, (req, res) => {
-    res.render("expert-work-view")
-})
+    res.render("expert-work-view");
+});
 
 /* ============================= */
 /* API ROUTES */
@@ -77,108 +72,105 @@ router.get("/view", requireExpert, (req, res) => {
 /* IN-PROGRESS */
 router.get("/api/in-progress", requireExpert, async (req, res) => {
     try {
-        const EXPERT_ID = req.session.EXPERT_ID
+        const expertId = req.session.expert.id;
 
-        const [rows] = await db.query(
-            `SELECT 
-                reference, 
-                subject, 
-                title, 
-                status, 
-                deadline AS dueDate,
-                budget AS payout
-             FROM assignments
-             WHERE EXPERT_ID=? 
-             AND status IN ('In Progress','Revision Requested')`,
-            [EXPERT_ID]
-        )
+        const assignments = await Assignment.find({
+            EXPERT_ID: expertId,
+            status: { $in: ["In Progress", "Revision Requested"] }
+        })
+        .select("reference subject title status deadline budget")
+        .lean();
 
-        res.json(rows)
+        const formatted = assignments.map(a => ({
+            ...a,
+            dueDate: a.deadline,
+            payout: a.budget
+        }));
+
+        res.json(formatted);
+
     } catch (err) {
-        console.error(err)
-        res.status(500).json({ message: "Server error" })
+        console.error(err);
+        res.status(500).json({ message: "Server error" });
     }
-})
+});
 
 /* ASSIGNMENT DETAILS */
 router.get("/api/assignment", requireExpert, async (req, res) => {
     try {
-        const reference = req.query.ref
+        const reference = req.query.ref;
 
         if (!reference) {
-            return res.status(400).json({ message: "Reference required" })
+            return res.status(400).json({ message: "Reference required" });
         }
 
-        const [rows] = await db.query(
-            `SELECT 
-                subject,
-                title,
-                reference,
-                status,
-                deadline AS dueDate,
-                budget AS payout
-             FROM assignments
-             WHERE reference=?`,
-            [reference]
-        )
+        const assignment = await Assignment.findOne({ reference })
+            .select("subject title reference status deadline budget")
+            .lean();
 
-        if (!rows.length) {
-            return res.status(404).json({ message: "Assignment not found" })
+        if (!assignment) {
+            return res.status(404).json({ message: "Assignment not found" });
         }
 
-        res.json(rows[0])
+        res.json({
+            ...assignment,
+            dueDate: assignment.deadline,
+            payout: assignment.budget
+        });
+
     } catch (err) {
-        console.error(err)
-        res.status(500).json({ message: "Server error" })
+        console.error(err);
+        res.status(500).json({ message: "Server error" });
     }
-})
+});
 
 /* ============================= */
-/* ✅ COMMENTS (CLEAN SEPARATION) */
+/* COMMENTS */
 /* ============================= */
 
 router.get("/api/comments", requireExpert, async (req, res) => {
     try {
-        const reference = req.query.ref
+        const reference = req.query.ref;
 
-        const [rows] = await db.query(
-            `SELECT submissionText, isClient
-             FROM submissions
-             WHERE reference=?
-             AND type='comment'
-             ORDER BY createdAt ASC`,
-            [reference]
-        )
+        const comments = await Submission.find({
+            reference,
+            type: "comment"
+        })
+        .sort({ createdAt: 1 })
+        .select("submissionText isClient")
+        .lean();
 
-        const formatted = rows.map(c => ({
+        const formatted = comments.map(c => ({
             message: c.submissionText,
             isClient: !!c.isClient
-        }))
+        }));
 
-        res.json(formatted)
+        res.json(formatted);
+
     } catch (err) {
-        console.error(err)
-        res.status(500).json({ message: "Error loading comments" })
+        console.error(err);
+        res.status(500).json({ message: "Error loading comments" });
     }
-})
+});
 
 router.post("/api/comments", requireExpert, async (req, res) => {
     try {
-        const { reference, message } = req.body
+        const { reference, message } = req.body;
 
-        await db.query(
-            `INSERT INTO submissions 
-            (reference, submissionText, type, isClient)
-             VALUES (?,?,?,?)`,
-            [reference, message, "comment", false]
-        )
+        await Submission.create({
+            reference,
+            submissionText: message,
+            type: "comment",
+            isClient: false
+        });
 
-        res.json({ success: true })
+        res.json({ success: true });
+
     } catch (err) {
-        console.error(err)
-        res.status(500).json({ message: "Failed to save comment" })
+        console.error(err);
+        res.status(500).json({ message: "Failed to save comment" });
     }
-})
+});
 
 /* ============================= */
 /* SUBMIT WORK */
@@ -190,42 +182,39 @@ router.post(
     upload.array("submissionFiles"),
     async (req, res) => {
         try {
-            const reference = req.body.reference
-            const description = req.body.description || ""
+            const { reference, description = "" } = req.body;
 
             /* FILES */
-            for (const file of req.files) {
-                await db.query(
-                    `INSERT INTO submissions 
-                    (reference,fileUrl,fileName,type,isClient)
-                     VALUES (?,?,?,?,?)`,
-                    [
-                        reference,
-                        `/uploads/expert-submissions/assignment-${reference}/${file.filename}`,
-                        file.originalname,
-                        "submission",
-                        false
-                    ]
-                )
+            if (req.files?.length) {
+                const fileDocs = req.files.map(file => ({
+                    reference,
+                    fileUrl: `/uploads/expert-submissions/assignment-${reference}/${file.filename}`,
+                    fileName: file.originalname,
+                    type: "submission",
+                    isClient: false
+                }));
+
+                await Submission.insertMany(fileDocs);
             }
 
-            /* TEXT (MAIN SUBMISSION NOTE) */
+            /* TEXT */
             if (description) {
-                await db.query(
-                    `INSERT INTO submissions 
-                    (reference,submissionText,type,isClient)
-                     VALUES (?,?,?,?)`,
-                    [reference, description, "submission", false]
-                )
+                await Submission.create({
+                    reference,
+                    submissionText: description,
+                    type: "submission",
+                    isClient: false
+                });
             }
 
-            res.json({ success: true, message: "Work submitted" })
+            res.json({ success: true, message: "Work submitted" });
+
         } catch (err) {
-            console.error(err)
-            res.status(500).json({ message: "Submission failed" })
+            console.error(err);
+            res.status(500).json({ message: "Submission failed" });
         }
     }
-)
+);
 
 /* ============================= */
 /* EDIT SUBMISSION */
@@ -237,49 +226,49 @@ router.post(
     upload.array("submissionFiles"),
     async (req, res) => {
         try {
-            const reference = req.body.reference
-            const description = req.body.description || ""
+            const { reference, description = "" } = req.body;
 
-            if (req.files.length > 0) {
-                for (const file of req.files) {
-                    await db.query(
-                        `INSERT INTO submissions 
-                        (reference,fileUrl,fileName,type,isClient)
-                         VALUES (?,?,?,?,?)`,
-                        [
-                            reference,
-                            `/uploads/expert-submissions/assignment-${reference}/${file.filename}`,
-                            file.originalname,
-                            "submission",
-                            false
-                        ]
-                    )
-                }
+            /* FILES */
+            if (req.files?.length) {
+                const fileDocs = req.files.map(file => ({
+                    reference,
+                    fileUrl: `/uploads/expert-submissions/assignment-${reference}/${file.filename}`,
+                    fileName: file.originalname,
+                    type: "submission",
+                    isClient: false
+                }));
+
+                await Submission.insertMany(fileDocs);
             }
 
+            /* TEXT */
             if (description) {
-                await db.query(
-                    `INSERT INTO submissions 
-                    (reference,submissionText,type,isClient)
-                     VALUES (?,?,?,?)`,
-                    [reference, description, "submission", false]
-                )
+                await Submission.create({
+                    reference,
+                    submissionText: description,
+                    type: "submission",
+                    isClient: false
+                });
             }
 
-            await db.query(
-                `UPDATE assignments
-                 SET status='In Progress'
-                 WHERE reference=? 
-                 AND status='Revision Requested'`,
-                [reference]
-            )
+            /* UPDATE STATUS */
+            await Assignment.updateOne(
+                {
+                    reference,
+                    status: "Revision Requested"
+                },
+                {
+                    $set: { status: "In Progress" }
+                }
+            );
 
-            res.json({ success: true, message: "Submission updated" })
+            res.json({ success: true, message: "Submission updated" });
+
         } catch (err) {
-            console.error(err)
-            res.status(500).json({ message: "Update failed" })
+            console.error(err);
+            res.status(500).json({ message: "Update failed" });
         }
     }
-)
+);
 
-module.exports = router
+module.exports = router;
