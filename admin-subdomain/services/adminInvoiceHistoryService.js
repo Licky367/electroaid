@@ -1,15 +1,27 @@
 const axios = require("axios");
 
 const {
+    Expert,
+    Assignment,
+    ExpertWeeklyPayment
+} = require("../models");
+
+const {
     getWeekRangeFromDate,
     getWeekRangeFromWeek
 } = require("../../utils/week");
 
 /* ================= CONFIG ================= */
 
-const USE_LIVE = process.env.USE_LIVE_EXCHANGE === "true";
-const FALLBACK_RATE = Number(process.env.FALLBACK_USD_TO_KES || 130);
-const API_URL = process.env.EXCHANGE_RATE_API;
+const USE_LIVE =
+    process.env.USE_LIVE_EXCHANGE === "true";
+
+const FALLBACK_RATE = Number(
+    process.env.FALLBACK_USD_TO_KES || 130
+);
+
+const API_URL =
+    process.env.EXCHANGE_RATE_API;
 
 /* ================= EXCHANGE RATE ================= */
 
@@ -17,11 +29,12 @@ let cachedRate = null;
 let lastFetchTime = 0;
 
 async function getExchangeRate() {
-
     const now = Date.now();
 
-    /* cache 1 hour */
-    if (cachedRate && (now - lastFetchTime < 3600000)) {
+    if (
+        cachedRate &&
+        now - lastFetchTime < 3600000
+    ) {
         return cachedRate;
     }
 
@@ -30,10 +43,17 @@ async function getExchangeRate() {
     }
 
     try {
-        const res = await axios.get(API_URL);
-        const rate = res.data?.rates?.KES;
+        const res =
+            await axios.get(API_URL);
 
-        if (!rate) throw new Error("Invalid exchange response");
+        const rate =
+            res.data?.rates?.KES;
+
+        if (!rate) {
+            throw new Error(
+                "Invalid exchange response"
+            );
+        }
 
         cachedRate = rate;
         lastFetchTime = now;
@@ -41,7 +61,11 @@ async function getExchangeRate() {
         return rate;
 
     } catch (err) {
-        console.error("Exchange failed, fallback used:", err.message);
+        console.error(
+            "Exchange failed, fallback used:",
+            err.message
+        );
+
         return FALLBACK_RATE;
     }
 }
@@ -49,94 +73,199 @@ async function getExchangeRate() {
 /* ================= EXPERT ================= */
 
 async function getExpert(regNo) {
-
-    const [rows] = await db.query(`
-        SELECT id, EXPERT_NAME, REG_NO
-        FROM experts
-        WHERE REG_NO = ?
-    `, [regNo]);
-
-    if (!rows.length) return null;
-
-    return rows[0];
+    return await Expert.findOne({
+        REG_NO: regNo
+    })
+        .select(
+            "_id EXPERT_NAME REG_NO"
+        )
+        .lean();
 }
 
 /* ================= BY DATE ================= */
 
-exports.getInvoiceByDate = async (date, regNo) => {
+exports.getInvoiceByDate =
+async (date, regNo) => {
 
-    const expert = await getExpert(regNo);
-    if (!expert) return null;
+    const expert =
+        await getExpert(regNo);
 
-    const { weekStart, weekEnd, week } = getWeekRangeFromDate(date);
+    if (!expert) {
+        return null;
+    }
 
-    return exports.getInvoiceData(expert, weekStart, weekEnd, week);
+    const {
+        weekStart,
+        weekEnd,
+        week
+    } =
+        getWeekRangeFromDate(
+            date
+        );
+
+    return exports.getInvoiceData(
+        expert,
+        weekStart,
+        weekEnd,
+        week
+    );
 };
 
 /* ================= BY WEEK ================= */
 
-exports.getInvoiceByWeek = async (week, regNo) => {
+exports.getInvoiceByWeek =
+async (week, regNo) => {
 
-    const expert = await getExpert(regNo);
-    if (!expert) return null;
+    const expert =
+        await getExpert(regNo);
 
-    const { weekStart, weekEnd } = getWeekRangeFromWeek(week);
+    if (!expert) {
+        return null;
+    }
 
-    return exports.getInvoiceData(expert, weekStart, weekEnd, week);
+    const {
+        weekStart,
+        weekEnd
+    } =
+        getWeekRangeFromWeek(
+            week
+        );
+
+    return exports.getInvoiceData(
+        expert,
+        weekStart,
+        weekEnd,
+        week
+    );
 };
 
 /* ================= CORE ================= */
 
-exports.getInvoiceData = async (expert, weekStart, weekEnd, week) => {
+exports.getInvoiceData =
+async (
+    expert,
+    weekStart,
+    weekEnd,
+    week
+) => {
 
-    /* ===== ASSIGNMENTS ===== */
-    const [rows] = await db.query(`
-        SELECT reference, title, payout as payoutUSD
-        FROM assignments
-        WHERE EXPERT_ID = ?
-        AND status = 'completed'
-        AND completedAt BETWEEN ? AND ?
-    `, [expert.id, weekStart, weekEnd]);
+    const rows =
+        await Assignment.find({
+            EXPERT_ID:
+                expert._id,
 
-    const totalUSD = rows.reduce(
-        (sum, r) => sum + Number(r.payoutUSD || 0),
-        0
-    );
+            status:
+                "completed",
 
-    /* ===== EXCHANGE ===== */
-    const rate = await getExchangeRate();
-    const totalKES = Number((totalUSD * rate).toFixed(2));
+            completedAt: {
+                $gte:
+                    new Date(
+                        weekStart
+                    ),
 
-    /* ===== PAYMENT STATUS ===== */
-    const [paymentRows] = await db.query(`
-        SELECT status, transactionCode
-        FROM expert_weekly_payments
-        WHERE EXPERT_ID = ?
-        AND weekStart = ?
-        LIMIT 1
-    `, [expert.id, weekStart]);
+                $lte:
+                    new Date(
+                        weekEnd
+                    )
+            }
+        })
+            .select(
+                "reference title payout"
+            )
+            .lean();
 
-    const payment = paymentRows[0];
+    const totalUSD =
+        rows.reduce(
+            (sum, row) =>
+                sum +
+                Number(
+                    row.payout || 0
+                ),
+            0
+        );
+
+    const rate =
+        await getExchangeRate();
+
+    const totalKES =
+        Number(
+            (
+                totalUSD * rate
+            ).toFixed(2)
+        );
+
+    const payment =
+        await ExpertWeeklyPayment.findOne(
+            {
+                EXPERT_ID:
+                    expert._id,
+
+                weekStart:
+                    new Date(
+                        weekStart
+                    )
+            }
+        )
+            .select(
+                "status transactionCode"
+            )
+            .lean();
 
     return {
         expert: {
-            id: expert.id,
-            name: expert.EXPERT_NAME,
-            regNo: expert.REG_NO
+            id: expert._id,
+            name:
+                expert.EXPERT_NAME,
+            regNo:
+                expert.REG_NO
         },
 
         week,
-        weekRange: `${new Date(weekStart).toDateString()} - ${new Date(weekEnd).toDateString()}`,
 
-        status: payment?.status || "PENDING",
-        transactionCode: payment?.transactionCode || null,
+        weekRange:
+            `${new Date(
+                weekStart
+            ).toDateString()} - ${new Date(
+                weekEnd
+            ).toDateString()}`,
 
-        assignments: rows.map(r => ({
-            reference: r.reference,
-            title: r.title,
-            payoutUSD: Number(r.payoutUSD),
-            payoutKES: Number((r.payoutUSD * rate).toFixed(2))
-        })),
+        status:
+            payment?.status ||
+            "PENDING",
+
+        transactionCode:
+            payment?.transactionCode ||
+            null,
+
+        assignments:
+            rows.map(
+                row => ({
+                    reference:
+                        row.reference,
+
+                    title:
+                        row.title,
+
+                    payoutUSD:
+                        Number(
+                            row.payout ||
+                            0
+                        ),
+
+                    payoutKES:
+                        Number(
+                            (
+                                (
+                                    row.payout ||
+                                    0
+                                ) *
+                                rate
+                            ).toFixed(
+                                2
+                            )
+                        )
+                })
+            ),
 
         totalUSD,
         totalKES
@@ -145,35 +274,74 @@ exports.getInvoiceData = async (expert, weekStart, weekEnd, week) => {
 
 /* ================= HISTORY ================= */
 
-exports.getHistory = async (regNo) => {
+exports.getHistory =
+async regNo => {
 
-    const expert = await getExpert(regNo);
-    if (!expert) return [];
+    const expert =
+        await getExpert(regNo);
 
-    const [rows] = await db.query(`
-        SELECT weekStart, weekEnd, amountUSD, amountKES, status
-        FROM expert_weekly_payments
-        WHERE EXPERT_ID = ?
-        ORDER BY weekStart DESC
-        LIMIT 50
-    `, [expert.id]);
+    if (!expert) {
+        return [];
+    }
 
-    return rows.map(r => ({
-        week: formatWeek(r.weekStart),
-        weekRange: `${new Date(r.weekStart).toDateString()} - ${new Date(r.weekEnd).toDateString()}`,
-        amountUSD: r.amountUSD,
-        amountKES: r.amountKES,
-        status: r.status
-    }));
+    const rows =
+        await ExpertWeeklyPayment.find(
+            {
+                EXPERT_ID:
+                    expert._id
+            }
+        )
+            .sort({
+                weekStart: -1
+            })
+            .limit(50)
+            .select(
+                "weekStart weekEnd amountUSD amountKES status"
+            )
+            .lean();
+
+    return rows.map(
+        row => ({
+            week:
+                formatWeek(
+                    row.weekStart
+                ),
+
+            weekRange:
+                `${new Date(
+                    row.weekStart
+                ).toDateString()} - ${new Date(
+                    row.weekEnd
+                ).toDateString()}`,
+
+            amountUSD:
+                row.amountUSD,
+
+            amountKES:
+                row.amountKES,
+
+            status:
+                row.status
+        })
+    );
 };
 
 /* ================= PDF ================= */
 
-exports.generatePDF = async (week, regNo) => {
+exports.generatePDF =
+async (week, regNo) => {
 
-    const data = await exports.getInvoiceByWeek(week, regNo);
+    const data =
+        await exports.getInvoiceByWeek(
+            week,
+            regNo
+        );
 
-    if (!data) throw new Error("No invoice data");
+    if (!data) {
+        throw new Error(
+            "No invoice data"
+        );
+    }
 
     const content = `
 Invoice: ${week}
@@ -185,18 +353,43 @@ Total KES: ${data.totalKES}
 Generated at: ${new Date().toISOString()}
 `;
 
-    return Buffer.from(content);
+    return Buffer.from(
+        content
+    );
 };
 
 /* ================= HELPERS ================= */
 
 function formatWeek(date) {
-    const d = new Date(date);
-    const year = d.getFullYear();
+    const d =
+        new Date(date);
 
-    const firstJan = new Date(year, 0, 1);
-    const days = Math.floor((d - firstJan) / 86400000);
-    const week = Math.ceil((days + firstJan.getDay() + 1) / 7);
+    const year =
+        d.getFullYear();
 
-    return `${year}-W${String(week).padStart(2, "0")}`;
+    const firstJan =
+        new Date(
+            year,
+            0,
+            1
+        );
+
+    const days =
+        Math.floor(
+            (d - firstJan) /
+            86400000
+        );
+
+    const week =
+        Math.ceil(
+            (
+                days +
+                firstJan.getDay() +
+                1
+            ) / 7
+        );
+
+    return `${year}-W${String(
+        week
+    ).padStart(2, "0")}`;
 }
