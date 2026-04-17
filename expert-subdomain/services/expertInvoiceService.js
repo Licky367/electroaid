@@ -1,4 +1,3 @@
-const db = require("../../db");
 const {
     getWeekRange,
     getWeekFromDate,
@@ -6,29 +5,49 @@ const {
     getSafeRate
 } = require("../utils/expertInvoiceHelpers");
 
-async function buildInvoice(expertId, week){
+const {
+    ExpertPayment,
+    Assignment
+} = require("../../models");
+
+
+/* ============================= */
+/* BUILD INVOICE */
+/* ============================= */
+async function buildInvoice(expertId, week) {
 
     const { sunday, saturday } = getWeekRange(week);
     const rate = await getSafeRate();
 
-    const [payment] = await db.query(`
-        SELECT status, transactionCode, amountUSD, amountKES
-        FROM expert_weekly_payments
-        WHERE EXPERT_ID = ?
-        AND DATE(weekStart) = DATE(?)
-    `,[expertId, sunday]);
+    /* ============================= */
+    /* PAYMENT RECORD */
+/* ============================= */
+    const payment = await ExpertPayment.find({
+        EXPERT_ID: expertId,
+        weekStart: new Date(sunday)
+    }).limit(1).lean();
 
-    const [assignments] = await db.query(`
-        SELECT reference, title, completedAt, payout
-        FROM assignments
-        WHERE EXPERT_ID = ?
-        AND status = 'completed'
-        AND completedAt BETWEEN ? AND ?
-    `,[expertId, sunday, saturday]);
 
+    /* ============================= */
+    /* COMPLETED ASSIGNMENTS */
+/* ============================= */
+    const assignments = await Assignment.find({
+        EXPERT_ID: expertId,
+        status: "completed",
+        completedAt: {
+            $gte: new Date(sunday),
+            $lte: new Date(saturday)
+        }
+    }).select("reference title completedAt payout").lean();
+
+
+    /* ============================= */
+    /* CALCULATION */
+/* ============================= */
     let totalUSD = 0;
 
-    const formatted = assignments.map(a=>{
+    const formatted = assignments.map(a => {
+
         const usd = Number(a.payout || 0);
         const kes = Math.floor(usd * rate);
 
@@ -42,18 +61,20 @@ async function buildInvoice(expertId, week){
     });
 
     let totalKES = Math.floor(totalUSD * rate);
+
     let status = "PENDING";
     let transactionCode = null;
 
-    if(week === getCurrentWeek()){
+    if (week === getCurrentWeek()) {
         status = "WAITING_WEEKEND";
     }
-    else if(payment.length){
+
+    else if (payment.length) {
 
         status = payment[0].status;
         transactionCode = payment[0].transactionCode;
 
-        if(status === "PAID"){
+        if (status === "PAID") {
             totalUSD = Number(payment[0].amountUSD || totalUSD);
             totalKES = Number(payment[0].amountKES || totalKES);
         }
@@ -71,21 +92,29 @@ async function buildInvoice(expertId, week){
     };
 }
 
-async function getInvoiceByDate(expertId, date){
+
+/* ============================= */
+/* GET INVOICE BY DATE */
+/* ============================= */
+async function getInvoiceByDate(expertId, date) {
     const week = getWeekFromDate(date);
     return buildInvoice(expertId, week);
 }
 
-async function getHistory(expertId){
 
-    const [rows] = await db.query(`
-        SELECT weekStart, weekEnd, amountUSD, amountKES, status, transactionCode, paidAt
-        FROM expert_weekly_payments
-        WHERE EXPERT_ID = ?
-        ORDER BY weekStart DESC
-    `,[expertId]);
+/* ============================= */
+/* HISTORY */
+/* ============================= */
+async function getHistory(expertId) {
 
-    return rows.map(r=>{
+    const rows = await ExpertPayment.find({
+        EXPERT_ID: expertId
+    })
+    .sort({ weekStart: -1 })
+    .lean();
+
+    return rows.map(r => {
+
         const week = getWeekFromDate(r.weekStart);
 
         return {
@@ -99,6 +128,7 @@ async function getHistory(expertId){
         };
     });
 }
+
 
 module.exports = {
     buildInvoice,
