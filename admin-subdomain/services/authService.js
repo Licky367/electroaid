@@ -2,21 +2,27 @@ const { hashPassword, comparePassword } = require("../utils/hash");
 const { generateToken } = require("../utils/tokens");
 const { sendEmail } = require("../utils/mailer");
 
+const { Admin, AdminInvite } = require("../models");
+
 /* ================= INVITE VALIDATION ================= */
 exports.validateInvite = async (token) => {
 
-    await db.query(`
-        UPDATE admin_invites 
-        SET status='expired' 
-        WHERE status='pending' AND expiresAt < NOW()
-    `);
+    // expire old invites
+    await AdminInvite.updateMany(
+        {
+            status: "pending",
+            expiresAt: { $lt: new Date() }
+        },
+        { $set: { status: "expired" } }
+    );
 
-    const [rows] = await db.query(`
-        SELECT * FROM admin_invites 
-        WHERE token=? AND status='pending' AND expiresAt > NOW()
-    `, [token]);
+    const invite = await AdminInvite.findOne({
+        token,
+        status: "pending",
+        expiresAt: { $gt: new Date() }
+    });
 
-    return rows[0] || null;
+    return invite || null;
 };
 
 /* ================= SIGNUP ================= */
@@ -36,35 +42,35 @@ exports.signup = async (req) => {
         throw { status: 400, message: "Invalid or expired invite" };
     }
 
-    const [existing] = await db.query(
-        "SELECT id FROM admins WHERE ADMIN_EMAIL=?",
-        [invite.ADMIN_EMAIL]
-    );
+    const existing = await Admin.findOne({
+        ADMIN_EMAIL: invite.ADMIN_EMAIL
+    });
 
-    if (existing.length) {
+    if (existing) {
         throw { status: 400, message: "Admin already exists" };
     }
 
     const hash = await hashPassword(ADMIN_PASSWORD);
 
-    const [result] = await db.query(`
-        INSERT INTO admins 
-        (ADMIN_EMAIL, ADMIN_NAME, ADMIN_PHONE, ADMIN_PASSWORD, ADMIN_PROFILE_IMAGE, role)
-        VALUES (?, ?, ?, ?, ?, ?)
-    `, [
-        invite.ADMIN_EMAIL,
+    const newAdmin = await Admin.create({
+        ADMIN_EMAIL: invite.ADMIN_EMAIL,
         ADMIN_NAME,
         ADMIN_PHONE,
-        hash,
-        image,
-        invite.role
-    ]);
+        ADMIN_PASSWORD: hash,
+        ADMIN_PROFILE_IMAGE: image,
+        role: invite.role
+    });
 
-    await db.query(`
-        UPDATE admin_invites 
-        SET status='used', usedAt=NOW(), usedBy=? 
-        WHERE token=?
-    `, [result.insertId, token]);
+    await AdminInvite.updateOne(
+        { token },
+        {
+            $set: {
+                status: "used",
+                usedAt: new Date(),
+                usedBy: newAdmin._id
+            }
+        }
+    );
 
     return { message: "Signup successful. You can now login." };
 };
@@ -81,16 +87,11 @@ exports.login = async (req) => {
     /* 🔐 NORMALIZE EMAIL */
     ADMIN_EMAIL = ADMIN_EMAIL.toLowerCase().trim();
 
-    const [rows] = await db.query(
-        "SELECT * FROM admins WHERE ADMIN_EMAIL=?",
-        [ADMIN_EMAIL]
-    );
+    const admin = await Admin.findOne({ ADMIN_EMAIL });
 
-    if (!rows.length) {
+    if (!admin) {
         throw { status: 400, message: "Invalid credentials" };
     }
-
-    const admin = rows[0];
 
     /* 🔐 STATUS CHECK */
     if (admin.status !== "active") {
@@ -103,21 +104,24 @@ exports.login = async (req) => {
         throw { status: 400, message: "Invalid credentials" };
     }
 
-    await db.query(`
-        UPDATE admins 
-        SET last_login_at=NOW(), last_login_ip=? 
-        WHERE id=?
-    `, [req.ip, admin.id]);
+    await Admin.updateOne(
+        { _id: admin._id },
+        {
+            $set: {
+                last_login_at: new Date(),
+                last_login_ip: req.ip
+            }
+        }
+    );
 
-    /* ✅ INCLUDE STATUS HERE */
     return {
-        id: admin.id,
+        id: admin._id,
         ADMIN_NAME: admin.ADMIN_NAME,
         ADMIN_EMAIL: admin.ADMIN_EMAIL,
         ADMIN_PHONE: admin.ADMIN_PHONE,
         ADMIN_PROFILE_IMAGE: admin.ADMIN_PROFILE_IMAGE,
         role: admin.role,
-        status: admin.status   // ✅ FIXED
+        status: admin.status
     };
 };
 
@@ -126,23 +130,23 @@ exports.forgotPassword = async (req) => {
 
     let { ADMIN_EMAIL } = req.body;
 
-    /* 🔐 NORMALIZE */
     ADMIN_EMAIL = ADMIN_EMAIL?.toLowerCase().trim();
 
-    const [rows] = await db.query(
-        "SELECT id FROM admins WHERE ADMIN_EMAIL=?",
-        [ADMIN_EMAIL]
-    );
+    const admin = await Admin.findOne({ ADMIN_EMAIL });
 
-    if (!rows.length) return;
+    if (!admin) return;
 
     const token = generateToken();
 
-    await db.query(`
-        UPDATE admins 
-        SET reset_token=?, reset_expires=DATE_ADD(NOW(), INTERVAL 1 HOUR)
-        WHERE ADMIN_EMAIL=?
-    `, [token, ADMIN_EMAIL]);
+    await Admin.updateOne(
+        { ADMIN_EMAIL },
+        {
+            $set: {
+                reset_token: token,
+                reset_expires: new Date(Date.now() + 60 * 60 * 1000) // 1 hour
+            }
+        }
+    );
 
     const link = `${process.env.ADMIN_AUTH_BASE_URL}/admin/auth/reset-password?token=${token}`;
 
@@ -158,20 +162,25 @@ exports.resetPassword = async (req) => {
 
     const { ADMIN_RESET_TOKEN, ADMIN_NEW_PASSWORD } = req.body;
 
-    const [rows] = await db.query(`
-        SELECT id FROM admins 
-        WHERE reset_token=? AND reset_expires > NOW()
-    `, [ADMIN_RESET_TOKEN]);
+    const admin = await Admin.findOne({
+        reset_token: ADMIN_RESET_TOKEN,
+        reset_expires: { $gt: new Date() }
+    });
 
-    if (!rows.length) {
+    if (!admin) {
         throw { status: 400, message: "Invalid or expired token" };
     }
 
     const hash = await hashPassword(ADMIN_NEW_PASSWORD);
 
-    await db.query(`
-        UPDATE admins 
-        SET ADMIN_PASSWORD=?, reset_token=NULL, reset_expires=NULL
-        WHERE id=?
-    `, [hash, rows[0].id]);
+    await Admin.updateOne(
+        { _id: admin._id },
+        {
+            $set: {
+                ADMIN_PASSWORD: hash,
+                reset_token: null,
+                reset_expires: null
+            }
+        }
+    );
 };
