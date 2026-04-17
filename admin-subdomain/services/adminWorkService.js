@@ -1,18 +1,13 @@
+const { Assignment, AssignmentFile } = require("../models");
+
 /* ================= LIST ================= */
 exports.fetchWorkAssignments = async () => {
 
-    const [rows] = await db.query(`
-        SELECT 
-            reference,
-            title,
-            CLIENT_NAME,
-            EXPERT_NAME,
-            dueDate,
-            status
-        FROM assignments
-        WHERE status IN ('In Progress','Revision Requested')
-        ORDER BY dueDate ASC
-    `);
+    const rows = await Assignment.find({
+        status: { $in: ["In Progress", "Revision Requested"] }
+    })
+    .select("reference title CLIENT_NAME EXPERT_NAME dueDate status")
+    .sort({ dueDate: 1 });
 
     return rows;
 };
@@ -20,27 +15,33 @@ exports.fetchWorkAssignments = async () => {
 /* ================= SINGLE ================= */
 exports.fetchWorkAssignmentByReference = async (reference) => {
 
-    const [rows] = await db.query(`
-        SELECT 
-            a.*,
-            (a.budget - a.payout) AS profit
-        FROM assignments a
-        WHERE a.reference = ?
-    `, [reference]);
+    const assignment = await Assignment.findOne({ reference });
 
-    return rows[0];
+    if (!assignment) return null;
+
+    // ✅ manually compute profit (since Mongo doesn’t auto-calc like SQL)
+    const profit = (assignment.budget || 0) - (assignment.payout || 0);
+
+    // convert to plain object to attach new field
+    const result = assignment.toObject();
+    result.profit = profit;
+
+    return result;
 };
 
 /* ================= FILES ================= */
 exports.fetchAssignmentFiles = async (reference) => {
 
-    const [files] = await db.query(`
-        SELECT 
-            fileUrl AS url,
-            fileName AS name
-        FROM assignment_files
-        WHERE reference = ?
-    `, [reference]);
+    const files = await AssignmentFile.find({ reference })
+        .select({
+            fileUrl: 1,
+            fileName: 1,
+            _id: 0
+        });
 
-    return files;
+    // match your old API shape
+    return files.map(f => ({
+        url: f.fileUrl,
+        name: f.fileName
+    }));
 };
