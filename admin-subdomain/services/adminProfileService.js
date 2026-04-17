@@ -1,4 +1,4 @@
-const { Admin } = require("../models");
+const { Admin } = require("../../models");
 
 exports.updateProfile = async (req) => {
 
