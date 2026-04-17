@@ -3,7 +3,7 @@ const nodemailer = require("nodemailer");
 const {
     ExpertRegistration,
     Admin
-} = require("../models");
+} = require("../../models");
 
 /* ================= ENV ================= */
 
