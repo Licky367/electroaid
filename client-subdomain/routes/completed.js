@@ -1,7 +1,7 @@
 const express = require("express");
 const router = express.Router();
 
-const { Assignment, Submission } = require("../models");
+const { Assignment, Submission } = require("../../models");
 
 /* ============================= */
 /* AUTH MIDDLEWARE */
