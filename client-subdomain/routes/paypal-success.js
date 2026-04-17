@@ -2,7 +2,7 @@ const express = require("express");
 const router = express.Router();
 const paypal = require("@paypal/checkout-server-sdk");
 
-const { Payment, Assignment } = require(../models");
+const { Payment, Assignment } = require(../../models");
 
 /* ============================= */
 /* PAYPAL CLIENT */
