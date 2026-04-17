@@ -1,60 +1,69 @@
+const {
+  PaymentSetting,
+  PayAfterClient,
+  PayAfterAssignment,
+  PayAfterRule
+} = require("../models");
+
 /* ================= GET SETTINGS ================= */
 exports.getSettings = async () => {
-  const [rows] = await db.query(
-    `SELECT depositPercentage, payAfterGlobal FROM payment_settings LIMIT 1`
-  );
+
+  const settings = await PaymentSetting.findOne();
 
   return {
     deposit: {
-      percentage: rows.length ? rows[0].depositPercentage : 30
+      percentage: settings?.depositPercentage ?? 30
     },
     payAfter: {
-      global: rows.length ? rows[0].payAfterGlobal : false
+      global: settings?.payAfterGlobal ?? false
     }
   };
 };
 
 /* ================= DEPOSIT ================= */
 exports.setDepositPercentage = async (percentage) => {
-  await db.query(
-    `UPDATE payment_settings SET depositPercentage=?`,
-    [percentage]
+
+  await PaymentSetting.updateOne(
+    {},
+    { $set: { depositPercentage: percentage } },
+    { upsert: true }
   );
 };
 
 /* ================= GLOBAL ================= */
 exports.setGlobalPayAfter = async (enabled) => {
-  await db.query(
-    `UPDATE payment_settings SET payAfterGlobal=?`,
-    [enabled]
+
+  await PaymentSetting.updateOne(
+    {},
+    { $set: { payAfterGlobal: enabled } },
+    { upsert: true }
   );
 };
 
 /* ================= CLIENT ================= */
 exports.addClientPayAfter = async (email) => {
-  await db.query(
-    `INSERT INTO pay_after_clients (CLIENT_EMAIL)
-     VALUES (?)
-     ON DUPLICATE KEY UPDATE CLIENT_EMAIL=CLIENT_EMAIL`,
-    [email]
+
+  await PayAfterClient.updateOne(
+    { CLIENT_EMAIL: email },
+    { $set: { CLIENT_EMAIL: email } },
+    { upsert: true }
   );
 };
 
 /* ================= ASSIGNMENT ================= */
 exports.addAssignmentPayAfter = async (reference) => {
-  await db.query(
-    `INSERT INTO pay_after_assignments (reference)
-     VALUES (?)
-     ON DUPLICATE KEY UPDATE reference=reference`,
-    [reference]
+
+  await PayAfterAssignment.updateOne(
+    { reference },
+    { $set: { reference } },
+    { upsert: true }
   );
 };
 
 /* ================= COUNT RULE ================= */
 exports.addAssignmentRule = async (count) => {
-  await db.query(
-    `INSERT INTO pay_after_rules (assignmentCountThreshold)
-     VALUES (?)`,
-    [count]
-  );
+
+  await PayAfterRule.create({
+    assignmentCountThreshold: count
+  });
 };
