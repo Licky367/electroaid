@@ -1,5 +1,4 @@
 const mongoose = require('mongoose');
-
 const { Schema } = mongoose;
 
 /* ================= ADMINS ================= */
@@ -72,12 +71,22 @@ const payAfterRuleSchema = new Schema({
 const paymentSettingsSchema = new Schema({
   _id: Number,
   depositPercentage: { type: Number, default: 30 },
-  payAfterGlobal: { type: Boolean, default: false }
+  payAfterGlobal: { type: Boolean, default: false },
+
+  // ✅ ADDED (required by your payout logic)
+  payoutPercentage: { type: Number }
+
 }, { timestamps: true });
 
 /* ================= PAYOUT GROUP RULES ================= */
 const payoutGroupSchema = new Schema({
   groupRange: { type: String, unique: true },
+  percentage: Number
+}, { timestamps: true });
+
+/* ================= PAYOUT INDIVIDUAL RULES ================= */
+const payoutIndividualSchema = new Schema({
+  REG_NO: { type: String, unique: true },
   percentage: Number
 }, { timestamps: true });
 
@@ -290,6 +299,10 @@ module.exports = {
   PayAfterRule: mongoose.model('pay_after_rules', payAfterRuleSchema),
   PaymentSettings: mongoose.model('payment_settings', paymentSettingsSchema),
   PayoutGroupRule: mongoose.model('payout_group_rules', payoutGroupSchema),
+
+  // ✅ ADDED EXPORT
+  PayoutIndividualRule: mongoose.model('payout_individual_rules', payoutIndividualSchema),
+
   ClientReset: mongoose.model('client_password_resets', clientResetSchema),
   Expert: mongoose.model('experts', expertSchema),
   ExpertRegistration: mongoose.model('expert_registrations', expertRegSchema),
