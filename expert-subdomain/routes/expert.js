@@ -43,22 +43,4 @@ router.get("/logout", (req, res) => {
     });
 });
 
-/* ===================================================== */
-/* PLACEHOLDER ROUTES (FOR FUTURE EXPANSION) */
-/* ===================================================== */
-
-// Assignments page
-router.get("/assignments", requireExpertAuth, (req, res) => {
-    res.render("expert-assignments", {
-        expert: req.session.expert
-    });
-});
-
-// Invoice page
-router.get("/invoice", requireExpertAuth, (req, res) => {
-    res.render("expert-invoice", {
-        expert: req.session.expert
-    });
-});
-
 module.exports = router;
