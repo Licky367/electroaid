@@ -1,15 +1,16 @@
-const express = require("express")
-const router = express.Router()
-const db = require("../../db")
+const express = require("express");
+const router = express.Router();
+
+const { Assignment, Submission } = require("../models");
 
 /* ============================= */
 /* AUTH MIDDLEWARE */
 /* ============================= */
 function requireClient(req, res, next) {
     if (!req.session.CLIENT_ID) {
-        return res.redirect("/auth/login")
+        return res.redirect("/auth/login");
     }
-    next()
+    next();
 }
 
 /* ============================= */
@@ -20,27 +21,25 @@ router.get("/", requireClient, async (req, res) => {
 
     try {
 
-        const CLIENT_ID = req.session.CLIENT_ID
+        const CLIENT_ID = req.session.CLIENT_ID;
 
-        const [rows] = await db.query(
-            `SELECT title, reference, budget, completedAt
-             FROM assignments
-             WHERE CLIENT_ID=? 
-             AND status='completed'
-             ORDER BY completedAt DESC`,
-            [CLIENT_ID]
-        )
+        const assignments = await Assignment.find({
+            CLIENT_ID,
+            status: "completed"
+        })
+        .select("title reference budget completedAt")
+        .sort({ completedAt: -1 });
 
         res.render("completed", {
-            assignments: rows
-        })
+            assignments
+        });
 
     } catch (err) {
-        console.error(err)
-        res.status(500).send("Server error")
+        console.error(err);
+        res.status(500).send("Server error");
     }
 
-})
+});
 
 /* ============================= */
 /* GET DETAILS PAGE */
@@ -50,57 +49,45 @@ router.get("/details", requireClient, async (req, res) => {
 
     try {
 
-        const CLIENT_ID = req.session.CLIENT_ID
-        const reference = req.query.reference   // ✅ aligned across system
+        const CLIENT_ID = req.session.CLIENT_ID;
+        const reference = req.query.reference;
 
         if (!reference) {
-            return res.redirect("/assignments/completed")
+            return res.redirect("/assignments/completed");
         }
 
         /* ============================= */
         /* ASSIGNMENT */
         /* ============================= */
-        const [assignmentRows] = await db.query(
-            `SELECT 
-                subject,
-                title,
-                reference,
-                deadline,
-                feedback,
-                rating,
-                EXPERT_NAME
-             FROM assignments
-             WHERE reference=? 
-             AND CLIENT_ID=? 
-             AND status='completed'`,
-            [reference, CLIENT_ID]
-        )
+        const assignment = await Assignment.findOne({
+            reference,
+            CLIENT_ID,
+            status: "completed"
+        }).select(
+            "subject title reference deadline feedback rating EXPERT_NAME"
+        );
 
-        if (!assignmentRows.length) {
-            return res.redirect("/assignments/completed")
+        if (!assignment) {
+            return res.redirect("/assignments/completed");
         }
-
-        const assignment = assignmentRows[0]
 
         /* ============================= */
         /* SUBMISSIONS */
         /* ============================= */
-        const [submissionRows] = await db.query(
-            `SELECT fileUrl, fileName, createdAt
-             FROM submissions
-             WHERE reference=?
-             ORDER BY createdAt DESC`,
-            [reference]
-        )
+        const submissionRows = await Submission.find({
+            reference
+        })
+        .select("fileUrl fileName createdAt")
+        .sort({ createdAt: -1 });
 
         const submittedAt = submissionRows.length
             ? submissionRows[0].createdAt
-            : null
+            : null;
 
         const submissionFiles = submissionRows.map(f => ({
             url: f.fileUrl,
             name: f.fileName
-        }))
+        }));
 
         /* ============================= */
         /* FINAL OBJECT */
@@ -116,17 +103,17 @@ router.get("/details", requireClient, async (req, res) => {
             feedback: assignment.feedback,
             EXPERT_NAME: assignment.EXPERT_NAME,
             REG_NO: "N/A"
-        }
+        };
 
         res.render("details", {
             assignment: finalData
-        })
+        });
 
     } catch (err) {
-        console.error(err)
-        res.status(500).send("Server error")
+        console.error(err);
+        res.status(500).send("Server error");
     }
 
-})
+});
 
-module.exports = router
+module.exports = router;
