@@ -1,54 +1,112 @@
+const {
+    Assignment,
+    Expert,
+    Submission
+} = require("../models");
+
 /* ================= LIST ================= */
 
-exports.fetchCompletedList = async () => {
+exports.fetchCompletedList =
+async () => {
 
-    const [rows] = await db.query(`
-        SELECT 
-            reference,
-            title,
-            EXPERT_NAME,
-            status
-        FROM assignments
-        WHERE status = 'completed'
-        ORDER BY completedAt DESC
-    `);
+    const rows =
+        await Assignment.find({
+            status:
+                "completed"
+        })
+            .select(
+                "reference title EXPERT_NAME status completedAt"
+            )
+            .sort({
+                completedAt: -1
+            })
+            .lean();
 
     return rows;
 };
 
 /* ================= SINGLE ================= */
 
-exports.fetchCompletedSingle = async (reference) => {
+exports.fetchCompletedSingle =
+async (
+    reference
+) => {
 
-    const [rows] = await db.query(`
-        SELECT 
-            a.reference,
-            a.title,
-            a.subject,
-            a.CLIENT_NAME,
-            a.completedAt,
-            a.EXPERT_NAME,
-            a.rating,
-            a.feedback,
+    const rows =
+        await Assignment.findOne({
+            reference,
+            status:
+                "completed"
+        })
+            .populate({
+                path:
+                    "EXPERT_ID",
+                model:
+                    "Expert",
+                select:
+                    "REG_NO EXPERT_EMAIL EXPERT_PHONE"
+            })
+            .lean();
 
-            e.REG_NO,
-            e.EXPERT_EMAIL,
-            e.EXPERT_PHONE,
+    if (!rows) {
+        return [];
+    }
 
-            s.fileUrl,
-            s.fileName
+    const submissions =
+        await Submission.find({
+            reference
+        })
+            .select(
+                "fileUrl fileName"
+            )
+            .lean();
 
-        FROM assignments a
+    return submissions.map(
+        file => ({
+            reference:
+                rows.reference,
 
-        LEFT JOIN experts e 
-        ON a.EXPERT_ID = e.id
+            title:
+                rows.title,
 
-        LEFT JOIN submissions s 
-        ON a.reference = s.reference
+            subject:
+                rows.subject,
 
-        WHERE a.reference = ?
-        AND a.status = 'completed'
-    `, [reference]);
+            CLIENT_NAME:
+                rows.CLIENT_NAME,
 
-    return rows;
+            completedAt:
+                rows.completedAt,
+
+            EXPERT_NAME:
+                rows.EXPERT_NAME,
+
+            rating:
+                rows.rating,
+
+            feedback:
+                rows.feedback,
+
+            REG_NO:
+                rows.EXPERT_ID
+                    ?.REG_NO ||
+                null,
+
+            EXPERT_EMAIL:
+                rows.EXPERT_ID
+                    ?.EXPERT_EMAIL ||
+                null,
+
+            EXPERT_PHONE:
+                rows.EXPERT_ID
+                    ?.EXPERT_PHONE ||
+                null,
+
+            fileUrl:
+                file.fileUrl,
+
+            fileName:
+                file.fileName
+        })
+    );
 };
