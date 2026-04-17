@@ -1,76 +1,67 @@
+const { Admin } = require("../models");
+
 /* ===== GET ALL ADMINS ===== */
 exports.getAllAdmins = async () => {
 
-    const [admins] = await db.query(`
-        SELECT 
-            id,
-            ADMIN_NAME,
-            ADMIN_EMAIL,
-            role,
-            status,
-            (status = 'active') AS is_active
-        FROM admins
-        ORDER BY createdAt DESC
-    `);
+    const admins = await Admin.find()
+        .select("ADMIN_NAME ADMIN_EMAIL role status createdAt")
+        .sort({ createdAt: -1 });
 
-    return admins;
+    return admins.map(a => ({
+        id: a._id,
+        ADMIN_NAME: a.ADMIN_NAME,
+        ADMIN_EMAIL: a.ADMIN_EMAIL,
+        role: a.role,
+        status: a.status,
+        is_active: a.status === "active"
+    }));
 };
 
 /* ===== TOGGLE STATUS ===== */
 exports.toggleAdminStatus = async (adminId, targetId) => {
 
-    if (adminId == targetId) {
+    if (adminId === targetId) {
         throw { status: 400, message: "You cannot deactivate yourself" };
     }
 
-    const [rows] = await db.query(
-        "SELECT status FROM admins WHERE id=?",
-        [targetId]
-    );
+    const admin = await Admin.findById(targetId);
 
-    if (!rows.length) {
+    if (!admin) {
         throw { status: 404, message: "Admin not found" };
     }
 
-    const currentStatus = rows[0].status;
-
     let newStatus;
-    if (currentStatus === "active") {
+
+    if (admin.status === "active") {
         newStatus = "inactive";
-    } else if (currentStatus === "inactive") {
+    } else if (admin.status === "inactive") {
         newStatus = "active";
     } else {
         throw { status: 400, message: "Cannot toggle suspended admin" };
     }
 
-    await db.query(
-        "UPDATE admins SET status=? WHERE id=?",
-        [newStatus, targetId]
+    await Admin.updateOne(
+        { _id: targetId },
+        { $set: { status: newStatus } }
     );
 };
 
 /* ===== DELETE ADMIN ===== */
 exports.deleteAdmin = async (adminId, targetId) => {
 
-    if (adminId == targetId) {
+    if (adminId === targetId) {
         throw { status: 400, message: "You cannot delete yourself" };
     }
 
-    const [rows] = await db.query(
-        "SELECT role FROM admins WHERE id=?",
-        [targetId]
-    );
+    const admin = await Admin.findById(targetId);
 
-    if (!rows.length) {
+    if (!admin) {
         throw { status: 404, message: "Admin not found" };
     }
 
-    if (rows[0].role === "SUPER_ADMIN") {
+    if (admin.role === "SUPER_ADMIN") {
         throw { status: 403, message: "Cannot delete SUPER ADMIN" };
     }
 
-    await db.query(
-        "DELETE FROM admins WHERE id=?",
-        [targetId]
-    );
+    await Admin.deleteOne({ _id: targetId });
 };
