@@ -1,19 +1,52 @@
+const {
+    Assignment
+} = require("../models");
+
 /* ================= LIST ================= */
-exports.getDeclinedAssignments = async () => {
 
-    const [rows] = await db.query(`
-        SELECT 
-            a.reference,
-            a.title,
-            a.CLIENT_NAME,
-            a.declinedAt,
-            adm.ADMIN_NAME
-        FROM assignments a
-        LEFT JOIN admins adm 
-            ON a.declinedByAdminId = adm.id
-        WHERE a.status = 'declined'
-        ORDER BY a.declinedAt DESC
-    `);
+exports.getDeclinedAssignments =
+async () => {
 
-    return rows;
+    const rows =
+        await Assignment.find({
+            status:
+                "declined"
+        })
+            .populate({
+                path:
+                    "declinedByAdminId",
+                model:
+                    "Admin",
+                select:
+                    "ADMIN_NAME"
+            })
+            .select(
+                "reference title CLIENT_NAME declinedAt declinedByAdminId"
+            )
+            .sort({
+                declinedAt: -1
+            })
+            .lean();
+
+    return rows.map(
+        row => ({
+            reference:
+                row.reference,
+
+            title:
+                row.title,
+
+            CLIENT_NAME:
+                row.CLIENT_NAME,
+
+            declinedAt:
+                row.declinedAt,
+
+            ADMIN_NAME:
+                row
+                    .declinedByAdminId
+                    ?.ADMIN_NAME ||
+                null
+        })
+    );
 };
