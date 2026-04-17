@@ -3,7 +3,7 @@ const {
   PayAfterClient,
   PayAfterAssignment,
   PayAfterRule
-} = require("../models");
+} = require("../../models");
 
 /* ================= GET SETTINGS ================= */
 exports.getSettings = async () => {
