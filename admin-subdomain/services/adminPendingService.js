@@ -1,56 +1,59 @@
+const { Assignment, AssignmentFile } = require("../models");
+
 /* ================= LIST ================= */
 exports.fetchPendingAssignments = async () => {
-    const [rows] = await db.query(`
-        SELECT 
-            reference,
-            title,
-            CLIENT_NAME,
-            dueDate,
-            budget,
-            payout,
-            profit,
-            status
-        FROM assignments
-        WHERE status = 'pending'
-        ORDER BY createdAt DESC
-    `);
 
-    return rows;
+    const assignments = await Assignment.find({
+        status: "pending"
+    })
+    .select("reference title CLIENT_NAME dueDate budget payout status createdAt")
+    .sort({ createdAt: -1 });
+
+    // ✅ compute profit manually
+    return assignments.map(a => {
+        const obj = a.toObject();
+        obj.profit = (a.budget || 0) - (a.payout || 0);
+        return obj;
+    });
 };
 
 /* ================= SINGLE ================= */
 exports.fetchAssignmentByReference = async (reference) => {
-    const [rows] = await db.query(`
-        SELECT *
-        FROM assignments
-        WHERE reference = ?
-    `, [reference]);
 
-    return rows[0] || null;
+    const assignment = await Assignment.findOne({ reference });
+
+    return assignment || null;
 };
 
 /* ================= FILES ================= */
 exports.fetchAssignmentFiles = async (reference) => {
-    const [rows] = await db.query(`
-        SELECT 
-            fileUrl AS url,
-            fileName AS name
-        FROM assignment_files
-        WHERE reference = ?
-    `, [reference]);
 
-    return rows;
+    const files = await AssignmentFile.find({ reference })
+        .select({
+            fileUrl: 1,
+            fileName: 1,
+            _id: 0
+        });
+
+    return files.map(f => ({
+        url: f.fileUrl,
+        name: f.fileName
+    }));
 };
 
 /* ================= DECLINE ================= */
 exports.updateDeclineAssignment = async (reference, adminId, reason) => {
-    await db.query(`
-        UPDATE assignments
-        SET 
-            status = 'declined',
-            declinedByAdminId = ?,
-            declineReason = ?,
-            declinedAt = NOW()
-        WHERE reference = ?
-    `, [adminId, reason, reference]);
+
+    await Assignment.updateOne(
+        { reference },
+        {
+            $set: {
+                status: "declined",
+                declinedByAdminId: adminId,
+                declineReason: reason,
+                declinedAt: new Date()
+            }
+        }
+    );
+
 };
