@@ -1,5 +1,3 @@
-require("dotenv").config({ path: "../config.env" });
-
 const express = require("express");
 const router = express.Router();
 
@@ -7,8 +5,10 @@ const bcrypt = require("bcrypt");
 const multer = require("multer");
 const path = require("path");
 
-const db = require("../../db");
-
+const {
+    Expert,
+    ExpertRegistration
+} = require("../../models");
 
 
 /* ================== MULTER ================== */
@@ -26,52 +26,60 @@ const storage = multer.diskStorage({
 
 const upload = multer({ storage });
 
+
 /* ================== REG_NO VALIDATION ================== */
 function validateREGNO(reg) {
     return /^EXP_\d{4}_[A-Z]{2}$/.test(reg);
 }
 
+
 /* ===================================================== */
 /* ================= VIEW =============================== */
-/* GET /expert/signup */
 /* ===================================================== */
-
 router.get("/signup", (req, res) => {
     res.render("expert-signup");
 });
 
-/* ===================================================== */
-/* ===== VALIDATE REG LINK (FOR FRONTEND LOCKING) ======= */
-/* GET /expert/validate?reg=XXX */
-/* ===================================================== */
 
+/* ===================================================== */
+/* ===== VALIDATE REG LINK ============================== */
+/* ===================================================== */
 router.get("/validate", async (req, res) => {
+
     try {
+
         const REG = req.query.reg?.trim().toUpperCase();
 
         if (!REG || !validateREGNO(REG)) {
-            return res.status(400).json({ valid: false, message: "Invalid link" });
+            return res.status(400).json({
+                valid: false,
+                message: "Invalid link"
+            });
         }
 
-        const [rows] = await db.execute(
-            `SELECT EXPERT_EMAIL, isUsed, expiresAt 
-             FROM expert_registrations 
-             WHERE REG_NO = ?`,
-            [REG]
-        );
+        const record = await ExpertRegistration.findOne({
+            REG_NO: REG
+        }).lean();
 
-        if (rows.length === 0) {
-            return res.json({ valid: false, message: "Invalid REG_NO" });
+        if (!record) {
+            return res.json({
+                valid: false,
+                message: "Invalid REG_NO"
+            });
         }
 
-        const record = rows[0];
-
-        if (record.isUsed) {
-            return res.json({ valid: false, message: "REG_NO already used" });
+        if (record.used) {
+            return res.json({
+                valid: false,
+                message: "REG_NO already used"
+            });
         }
 
         if (new Date() > new Date(record.expiresAt)) {
-            return res.json({ valid: false, message: "REG_NO expired" });
+            return res.json({
+                valid: false,
+                message: "REG_NO expired"
+            });
         }
 
         return res.json({
@@ -82,20 +90,24 @@ router.get("/validate", async (req, res) => {
 
     } catch (err) {
         console.error(err);
-        res.status(500).json({ valid: false, message: "Server error" });
+        res.status(500).json({
+            valid: false,
+            message: "Server error"
+        });
     }
 });
 
+
 /* ===================================================== */
 /* ================= SIGNUP API ========================= */
-/* POST /expert/signup */
 /* ===================================================== */
-
 router.post(
     "/signup",
     upload.single("EXPERT_PROFILE_IMAGE"),
     async (req, res) => {
+
         try {
+
             const {
                 EXPERT_NAME,
                 EXPERT_EMAIL,
@@ -103,7 +115,6 @@ router.post(
                 EXPERT_PASSWORD
             } = req.body;
 
-            /* ================== GET REG_NO FROM URL FIRST ================== */
             let REG = req.query.reg || req.body.REG_NO;
 
             if (!REG) {
@@ -115,13 +126,9 @@ router.post(
             REG = REG.trim().toUpperCase();
             const EMAIL = EXPERT_EMAIL.trim().toLowerCase();
 
-            /* ================== BASIC VALIDATION ================== */
-            if (
-                !EXPERT_NAME ||
-                !EMAIL ||
-                !EXPERT_PHONE ||
-                !EXPERT_PASSWORD
-            ) {
+
+            /* ================== VALIDATION ================== */
+            if (!EXPERT_NAME || !EMAIL || !EXPERT_PHONE || !EXPERT_PASSWORD) {
                 return res.status(400).json({
                     message: "All fields are required"
                 });
@@ -133,57 +140,62 @@ router.post(
                 });
             }
 
-            /* ================== CHECK REG_NO ================== */
-            const [regRows] = await db.execute(
-                `SELECT * FROM expert_registrations 
-                 WHERE REG_NO = ?`,
-                [REG]
-            );
 
-            if (regRows.length === 0) {
+            /* ================== CHECK REG ================== */
+            const regRecord = await ExpertRegistration.findOne({
+                REG_NO: REG
+            });
+
+            if (!regRecord) {
                 return res.status(400).json({
                     message: "Invalid registration number"
                 });
             }
 
-            const regRecord = regRows[0];
 
-            /* ================== EMAIL MUST MATCH INVITE ================== */
+            /* ================== EMAIL MATCH ================== */
             if (regRecord.EXPERT_EMAIL !== EMAIL) {
                 return res.status(403).json({
                     message: "Email does not match invitation"
                 });
             }
 
-            /* ================== CHECK USED ================== */
-            if (regRecord.isUsed) {
+
+            /* ================== USED ================== */
+            if (regRecord.used) {
                 return res.status(400).json({
                     message: "REG_NO already used"
                 });
             }
 
-            /* ================== CHECK EXPIRY ================== */
+
+            /* ================== EXPIRY ================== */
             if (new Date() > new Date(regRecord.expiresAt)) {
                 return res.status(400).json({
                     message: "REG_NO expired"
                 });
             }
 
-            /* ================== CHECK DUPLICATES ================== */
-            const [existing] = await db.execute(
-                `SELECT id FROM experts 
-                 WHERE EXPERT_EMAIL = ? OR EXPERT_PHONE = ? OR REG_NO = ?`,
-                [EMAIL, EXPERT_PHONE, REG]
-            );
 
-            if (existing.length > 0) {
+            /* ================== DUPLICATES ================== */
+            const existing = await Expert.findOne({
+                $or: [
+                    { EXPERT_EMAIL: EMAIL },
+                    { EXPERT_PHONE: EXPERT_PHONE.trim() },
+                    { REG_NO: REG }
+                ]
+            });
+
+            if (existing) {
                 return res.status(400).json({
                     message: "Expert already exists"
                 });
             }
 
+
             /* ================== HASH PASSWORD ================== */
             const hashedPassword = await bcrypt.hash(EXPERT_PASSWORD, 10);
+
 
             /* ================== IMAGE ================== */
             let imagePath = null;
@@ -191,28 +203,24 @@ router.post(
                 imagePath = `/uploads/experts/${req.file.filename}`;
             }
 
-            /* ================== INSERT EXPERT ================== */
-            await db.execute(
-                `INSERT INTO experts 
-                (EXPERT_NAME, EXPERT_EMAIL, EXPERT_PHONE, REG_NO, EXPERT_PROFILE_IMAGE, EXPERT_PASSWORD)
-                VALUES (?, ?, ?, ?, ?, ?)`,
-                [
-                    EXPERT_NAME.trim(),
-                    EMAIL,
-                    EXPERT_PHONE.trim(),
-                    REG,
-                    imagePath,
-                    hashedPassword
-                ]
+
+            /* ================== CREATE EXPERT ================== */
+            await Expert.create({
+                EXPERT_NAME: EXPERT_NAME.trim(),
+                EXPERT_EMAIL: EMAIL,
+                EXPERT_PHONE: EXPERT_PHONE.trim(),
+                REG_NO: REG,
+                EXPERT_PROFILE_IMAGE: imagePath,
+                EXPERT_PASSWORD: hashedPassword
+            });
+
+
+            /* ================== MARK REG USED ================== */
+            await ExpertRegistration.updateOne(
+                { REG_NO: REG },
+                { used: true }
             );
 
-            /* ================== MARK REG_NO AS USED ================== */
-            await db.execute(
-                `UPDATE expert_registrations 
-                 SET isUsed = TRUE 
-                 WHERE REG_NO = ?`,
-                [REG]
-            );
 
             return res.json({
                 message: "Signup successful"
