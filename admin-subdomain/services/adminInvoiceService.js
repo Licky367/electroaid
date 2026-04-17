@@ -5,7 +5,7 @@ const {
   Expert,
   Assignment,
   ExpertWeeklyPayment
-} = require("../models");
+} = require("../../models");
 
 /* ================= ENV ================= */
 const INTASEND_SECRET = process.env.INTASEND_SECRET_KEY;
