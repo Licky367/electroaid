@@ -1,81 +1,174 @@
+const {
+    Message,
+    Client
+} = require("../models");
+
 /* ================= USERS ================= */
 
-exports.getChatUsers = async () => {
-    const [rows] = await db.query(`
-        SELECT 
-            c.id AS clientId,
-            c.CLIENT_NAME AS clientName,
-            c.CLIENT_EMAIL AS clientEmail,
+exports.getChatUsers =
+async () => {
 
-            (
-                SELECT COUNT(*) 
-                FROM messages m 
-                WHERE m.clientId = c.id 
-                AND m.senderRole = 'client' 
-                AND m.isRead = 0
-            ) AS unreadCount,
+    const clients =
+        await Client.find()
+            .select(
+                "_id CLIENT_NAME CLIENT_EMAIL"
+            )
+            .lean();
 
-            (
-                SELECT MAX(createdAt) 
-                FROM messages m 
-                WHERE m.clientId = c.id
-            ) AS lastMessageAt
+    const result =
+        await Promise.all(
+            clients.map(
+                async client => {
 
-        FROM clients c
-        WHERE EXISTS (
-            SELECT 1 FROM messages m WHERE m.clientId = c.id
-        )
-        ORDER BY lastMessageAt DESC
-    `);
+                    const unreadCount =
+                        await Message.countDocuments(
+                            {
+                                clientId:
+                                    client._id,
 
-    return rows;
+                                senderRole:
+                                    "client",
+
+                                isRead:
+                                    false
+                            }
+                        );
+
+                    const lastMessage =
+                        await Message.findOne(
+                            {
+                                clientId:
+                                    client._id
+                            }
+                        )
+                            .sort({
+                                createdAt: -1
+                            })
+                            .select(
+                                "createdAt"
+                            )
+                            .lean();
+
+                    const hasMessages =
+                        await Message.exists(
+                            {
+                                clientId:
+                                    client._id
+                            }
+                        );
+
+                    if (!hasMessages) {
+                        return null;
+                    }
+
+                    return {
+                        clientId:
+                            client._id,
+
+                        clientName:
+                            client.CLIENT_NAME,
+
+                        clientEmail:
+                            client.CLIENT_EMAIL,
+
+                        unreadCount,
+
+                        lastMessageAt:
+                            lastMessage?.createdAt ||
+                            null
+                    };
+                }
+            )
+        );
+
+    return result
+        .filter(Boolean)
+        .sort(
+            (a, b) =>
+                new Date(b.lastMessageAt) -
+                new Date(a.lastMessageAt)
+        );
 };
 
 /* ================= MESSAGES ================= */
 
-exports.getMessagesByClient = async (clientId) => {
+exports.getMessagesByClient =
+async (clientId) => {
 
-    // mark client messages as read
-    await db.query(`
-        UPDATE messages
-        SET isRead = 1,
-            seenAt = NOW()
-        WHERE clientId = ?
-        AND senderRole = 'client'
-    `, [clientId]);
+    await Message.updateMany(
+        {
+            clientId,
+            senderRole:
+                "client"
+        },
+        {
+            $set: {
+                isRead: true,
+                seenAt: new Date()
+            }
+        }
+    );
 
-    const [rows] = await db.query(`
-        SELECT * FROM messages
-        WHERE clientId = ?
-        ORDER BY createdAt ASC
-    `, [clientId]);
+    const rows =
+        await Message.find({
+            clientId
+        })
+            .sort({
+                createdAt: 1
+            })
+            .lean();
 
     return rows;
 };
 
 /* ================= SEND ================= */
 
-exports.sendMessage = async (clientId, message, file = null) => {
+exports.sendMessage =
+async (
+    clientId,
+    message,
+    file = null
+) => {
 
     let fileUrl = null;
     let fileName = null;
 
     if (file) {
-        fileUrl = "uploads/chat/" + file.filename;
-        fileName = file.originalname;
+        fileUrl =
+            "uploads/chat/" +
+            file.filename;
+
+        fileName =
+            file.originalname;
     }
 
-    const [result] = await db.query(`
-        INSERT INTO messages 
-        (clientId, message, senderRole, isRead, fileUrl, fileName, createdAt)
-        VALUES (?, ?, 'admin', 1, ?, ?, NOW())
-    `, [clientId, message || "", fileUrl, fileName]);
+    const newMsg =
+        await Message.create({
+            clientId,
+            message:
+                message || "",
 
-    return result.insertId;
+            senderRole:
+                "admin",
+
+            isRead: true,
+
+            fileUrl,
+            fileName,
+
+            createdAt:
+                new Date()
+        });
+
+    return newMsg._id;
 };
 
 /* ================= DELETE ================= */
 
-exports.deleteMessage = async (id) => {
-    await db.query(`DELETE FROM messages WHERE id = ?`, [id]);
+exports.deleteMessage =
+async id => {
+
+    await Message.findByIdAndDelete(
+        id
+    );
 };
