@@ -1,6 +1,12 @@
 const axios = require("axios");
 const nodemailer = require("nodemailer");
 
+const {
+  Expert,
+  Assignment,
+  ExpertWeeklyPayment
+} = require("../models");
+
 /* ================= ENV ================= */
 const INTASEND_SECRET = process.env.INTASEND_SECRET_KEY;
 const INTASEND_BASE_URL = process.env.INTASEND_BASE_URL;
@@ -26,48 +32,34 @@ const SUPPORT_WHATSAPP = process.env.SUPPORT_WHATSAPP;
 /* ================= MAILER ================= */
 const transporter = nodemailer.createTransport({
     service: "gmail",
-    auth: {
-        user: EMAIL_USER,
-        pass: EMAIL_PASS
-    }
+    auth: { user: EMAIL_USER, pass: EMAIL_PASS }
 });
 
 /* ================= EMAIL ================= */
 const sendPaymentEmail = async (payment, expert) => {
     try {
 
-        const maskedPhone = expert.EXPERT_PHONE.replace(/(\d{3})\d{4}(\d{3})/, "$1****$2");
+        const maskedPhone = expert.EXPERT_PHONE
+            ? expert.EXPERT_PHONE.replace(/(\d{3})\d{4}(\d{3})/, "$1****$2")
+            : "N/A";
 
         const html = `
         Hello ${expert.EXPERT_NAME},
 
         We’re pleased to inform you that your weekly payout has been successfully processed.
 
-        ──────────────────────────────
-
         💰 Payment Details
-
         Amount (KES): ${payment.amountKES}
         Amount (USD): ${payment.amountUSD}
         M-Pesa Code: ${payment.transactionCode}
         Period: ${new Date(payment.weekStart).toLocaleDateString()} → ${new Date(payment.weekEnd).toLocaleDateString()}
         Sent to: ${maskedPhone}
 
-        ──────────────────────────────
-
-        📊 View Your Earnings
         👉 ${EXPERT_BASE_URL}/expert/invoice
 
-        ──────────────────────────────
+        📞 ${SUPPORT_EMAIL} | ${SUPPORT_PHONE}
 
-        📞 Need Help?
-        Email: ${SUPPORT_EMAIL}
-        Phone: ${SUPPORT_PHONE}
-        WhatsApp: ${SUPPORT_WHATSAPP}
-
-        ──────────────────────────────
-
-        Best regards,  
+        Regards,
         ${EMAIL_FROM_NAME}
         `;
 
@@ -130,187 +122,118 @@ const retryPayment = async (payment) => {
 
     if ((payment.retryCount || 0) >= MAX_RETRIES) return;
 
-    const conn = await db.pool.getConnection();
+    const rate = await exports.getExchangeRate();
 
-    try {
-        await conn.beginTransaction();
-
-        const rate = await exports.getExchangeRate();
-
-        const [rows] = await conn.query(`
-            SELECT a.*, e.EXPERT_PHONE
-            FROM assignments a
-            JOIN experts e ON a.EXPERT_ID = e.id
-            WHERE a.EXPERT_ID = ?
-            AND a.completedAt BETWEEN ? AND ?
-            AND a.status = 'completed'
-        `, [payment.EXPERT_ID, payment.weekStart, payment.weekEnd]);
-
-        if (!rows.length) {
-            await conn.commit();
-            return;
+    const assignments = await Assignment.find({
+        EXPERT_ID: payment.EXPERT_ID,
+        status: "completed",
+        completedAt: {
+            $gte: payment.weekStart,
+            $lte: payment.weekEnd
         }
+    });
 
-        const amountUSD = rows.reduce((s, r) => s + Number(r.payout || 0), 0);
-        const amountKES = Number((amountUSD * rate).toFixed(2));
+    if (!assignments.length) return;
 
-        const response = await makePaymentRequest({
-            amount: amountKES,
-            phone_number: rows[0].EXPERT_PHONE,
-            currency: "KES",
-            reference: `RETRY-${payment.REG_NO}-${Date.now()}`,
-            callback_url: INTASEND_ADMIN_WEBHOOK_URL
-        });
+    const expert = await Expert.findById(payment.EXPERT_ID);
 
-        const ref = response.data?.invoice?.invoice_id;
+    const amountUSD = assignments.reduce(
+        (sum, a) => sum + Number(a.payout || 0),
+        0
+    );
 
-        await conn.query(`
-            UPDATE expert_weekly_payments
-            SET 
-                paymentReference = ?,
-                status = 'PROCESSING',
-                retryCount = retryCount + 1,
-                nextRetryAt = NULL
-            WHERE id = ?
-        `, [ref, payment.id]);
+    const amountKES = Number((amountUSD * rate).toFixed(2));
 
-        await conn.commit();
+    const response = await makePaymentRequest({
+        amount: amountKES,
+        phone_number: expert?.EXPERT_PHONE,
+        currency: "KES",
+        reference: `RETRY-${payment.REG_NO}-${Date.now()}`,
+        callback_url: INTASEND_ADMIN_WEBHOOK_URL
+    });
 
-    } catch (err) {
-        await conn.rollback();
+    const ref = response.data?.invoice?.invoice_id;
 
-        const newRetry = (payment.retryCount || 0) + 1;
-
-        await conn.query(`
-            UPDATE expert_weekly_payments
-            SET 
-                retryCount = ?,
-                nextRetryAt = CASE
-                    WHEN ? >= ? THEN NULL
-                    ELSE DATE_ADD(NOW(), INTERVAL 10 MINUTE)
-                END
-            WHERE id = ?
-        `, [newRetry, newRetry, MAX_RETRIES, payment.id]);
-
-    } finally {
-        conn.release();
-    }
+    await ExpertWeeklyPayment.updateOne(
+        { _id: payment._id },
+        {
+            $set: {
+                paymentReference: ref,
+                status: "PROCESSING",
+                nextRetryAt: null
+            },
+            $inc: { retryCount: 1 }
+        }
+    );
 };
 
 /* ================= WEBHOOK ================= */
 exports.handleIntaSendCallback = async (body) => {
 
-    const conn = await db.pool.getConnection();
+    const invoice = body?.invoice;
+    if (!invoice?.invoice_id) return;
 
-    try {
-        await conn.beginTransaction();
+    const reference = invoice.invoice_id;
+    const state = invoice.state;
+    const receipt = invoice.mpesa_reference || null;
 
-        const invoice = body?.invoice;
-        if (!invoice?.invoice_id) {
-            await conn.commit();
-            return;
-        }
+    const payment = await ExpertWeeklyPayment.findOne({
+        paymentReference: reference
+    });
 
-        const reference = invoice.invoice_id;
-        const state = invoice.state;
-        const receipt = invoice.mpesa_reference || null;
+    if (!payment) return;
 
-        const [rows] = await conn.query(`
-            SELECT * FROM expert_weekly_payments
-            WHERE paymentReference = ?
-            FOR UPDATE
-        `, [reference]);
+    if (payment.status === "PAID") return;
 
-        if (!rows.length) {
-            await conn.commit();
-            return;
-        }
+    if (state === "COMPLETE") {
 
-        const payment = rows[0];
+        await ExpertWeeklyPayment.updateOne(
+            { _id: payment._id },
+            {
+                $set: {
+                    status: "PAID",
+                    transactionCode: receipt,
+                    paidAt: new Date()
+                }
+            }
+        );
 
-        if (payment.status === "PAID") {
-            await conn.commit();
-            return;
-        }
+        const expert = await Expert.findById(payment.EXPERT_ID);
 
-        if (state === "COMPLETE") {
+        await sendPaymentEmail(
+            { ...payment.toObject(), transactionCode: receipt },
+            expert
+        );
 
-            await conn.query(`
-                UPDATE expert_weekly_payments
-                SET status = 'PAID', transactionCode = ?, paidAt = NOW()
-                WHERE id = ?
-            `, [receipt, payment.id]);
+        return;
 
-            const [[expert]] = await conn.query(`
-                SELECT EXPERT_NAME, EXPERT_EMAIL, EXPERT_PHONE
-                FROM experts
-                WHERE id = ?
-            `, [payment.EXPERT_ID]);
+    } else if (state === "FAILED") {
 
-            await conn.commit();
+        await ExpertWeeklyPayment.updateOne(
+            { _id: payment._id },
+            { $set: { status: "FAILED" } }
+        );
 
-            await sendPaymentEmail(
-                { ...payment, transactionCode: receipt },
-                expert
-            );
-
-            return;
-
-        } else if (state === "FAILED") {
-
-            await conn.query(`
-                UPDATE expert_weekly_payments
-                SET status = 'FAILED'
-                WHERE id = ?
-            `, [payment.id]);
-
-            await conn.commit();
-
-            await retryPayment(payment);
-            return;
-        }
-
-        await conn.commit();
-
-    } catch (err) {
-        await conn.rollback();
-        console.error("WEBHOOK ERROR:", err.message);
-    } finally {
-        conn.release();
+        await retryPayment(payment);
+        return;
     }
 };
 
 /* ================= AUTO RETRY WORKER ================= */
-
 const processAutoRetries = async () => {
 
-    const conn = await db.pool.getConnection();
+    const payments = await ExpertWeeklyPayment.find({
+        status: "FAILED",
+        retryCount: { $lt: MAX_RETRIES },
+        nextRetryAt: { $ne: null, $lte: new Date() }
+    }).limit(20);
 
-    try {
+    if (!payments.length) return;
 
-        const [payments] = await conn.query(`
-            SELECT *
-            FROM expert_weekly_payments
-            WHERE status = 'FAILED'
-            AND retryCount < ?
-            AND nextRetryAt IS NOT NULL
-            AND nextRetryAt <= NOW()
-            ORDER BY nextRetryAt ASC
-            LIMIT 20
-        `, [MAX_RETRIES]);
+    console.log(`🔁 Auto-retrying ${payments.length} payments...`);
 
-        if (!payments.length) return;
-
-        console.log(`🔁 Auto-retrying ${payments.length} payments...`);
-
-        for (const payment of payments) {
-            await retryPayment(payment);
-        }
-
-    } catch (err) {
-        console.error("AUTO RETRY ERROR:", err.message);
-    } finally {
-        conn.release();
+    for (const payment of payments) {
+        await retryPayment(payment);
     }
 };
 
