@@ -1,40 +1,70 @@
 const nodemailer = require("nodemailer");
 
+const {
+    ExpertRegistration,
+    Admin
+} = require("../models");
+
 /* ================= ENV ================= */
-const SIGNUP_LINK = process.env.EXPERT_SIGNUP_LINK;
-const EMAIL_USER = process.env.EMAIL_USER;
-const EMAIL_PASS = process.env.EMAIL_PASS;
+
+const SIGNUP_LINK =
+    process.env.EXPERT_SIGNUP_LINK;
+
+const EMAIL_USER =
+    process.env.EMAIL_USER;
+
+const EMAIL_PASS =
+    process.env.EMAIL_PASS;
 
 /* ================= MAILER ================= */
-const transporter = nodemailer.createTransport({
-    service: "gmail",
-    auth: {
-        user: EMAIL_USER,
-        pass: EMAIL_PASS
-    }
-});
+
+const transporter =
+    nodemailer.createTransport({
+        service: "gmail",
+        auth: {
+            user: EMAIL_USER,
+            pass: EMAIL_PASS
+        }
+    });
 
 /* ================= HELPERS ================= */
 
 function generateRegNo() {
-    const numbers = Math.floor(1000 + Math.random() * 9000);
-    const letters = String.fromCharCode(
-        65 + Math.floor(Math.random() * 26),
-        65 + Math.floor(Math.random() * 26)
-    );
+    const numbers =
+        Math.floor(
+            1000 +
+            Math.random() * 9000
+        );
+
+    const letters =
+        String.fromCharCode(
+            65 +
+            Math.floor(
+                Math.random() * 26
+            ),
+            65 +
+            Math.floor(
+                Math.random() * 26
+            )
+        );
+
     return `EXP_${numbers}_${letters}`;
 }
 
 async function cleanExpiredRegNos() {
-    await db.query(`
-        DELETE FROM expert_registrations
-        WHERE used = FALSE
-        AND expiresAt < NOW()
-    `);
+    await ExpertRegistration.deleteMany({
+        used: false,
+        expiresAt: {
+            $lt: new Date()
+        }
+    });
 }
 
-function generateEmailHTML(REG_NO) {
-    const link = `${SIGNUP_LINK}?reg=${REG_NO}`;
+function generateEmailHTML(
+    REG_NO
+) {
+    const link =
+        `${SIGNUP_LINK}?reg=${REG_NO}`;
 
     return `
     <div style="font-family:Arial,sans-serif;background:#f4f4f4;padding:20px">
@@ -64,98 +94,201 @@ function generateEmailHTML(REG_NO) {
 }
 
 /* ================= FETCH INVITES ================= */
-exports.fetchExpertInvites = async () => {
+
+exports.fetchExpertInvites =
+async () => {
+
     await cleanExpiredRegNos();
 
-    const [experts] = await db.query(`
-        SELECT 
-            r.REG_NO,
-            r.EXPERT_EMAIL,
-            a.ADMIN_NAME
-        FROM expert_registrations r
-        LEFT JOIN admins a 
-            ON r.createdByAdminId = a.id
-        ORDER BY r.createdAt DESC
-    `);
+    const experts =
+        await ExpertRegistration.find()
+            .populate(
+                {
+                    path: "createdByAdminId",
+                    model: "Admin",
+                    select:
+                        "ADMIN_NAME"
+                }
+            )
+            .sort({
+                createdAt: -1
+            })
+            .lean();
 
-    return experts;
+    return experts.map(
+        row => ({
+            REG_NO:
+                row.REG_NO,
+
+            EXPERT_EMAIL:
+                row.EXPERT_EMAIL,
+
+            ADMIN_NAME:
+                row
+                    .createdByAdminId
+                    ?.ADMIN_NAME ||
+                null
+        })
+    );
 };
 
 /* ================= CREATE INVITE ================= */
-exports.createExpertInvite = async ({ adminId, role, email }) => {
+
+exports.createExpertInvite =
+async ({
+    adminId,
+    role,
+    email
+}) => {
+
     if (!adminId) {
-        return { error: "Unauthorized", status: 401 };
+        return {
+            error:
+                "Unauthorized",
+            status: 401
+        };
     }
 
     if (!email) {
-        return { error: "Email is required", status: 400 };
+        return {
+            error:
+                "Email is required",
+            status: 400
+        };
     }
 
-    const cleanEmail = email.trim().toLowerCase();
+    const cleanEmail =
+        email
+            .trim()
+            .toLowerCase();
 
     await cleanExpiredRegNos();
 
     /* ===== PREVENT DUPLICATE ===== */
-    const [existing] = await db.query(`
-        SELECT id FROM expert_registrations
-        WHERE EXPERT_EMAIL = ?
-        AND used = FALSE
-        AND expiresAt > NOW()
-    `, [cleanEmail]);
 
-    if (existing.length > 0) {
+    const existing =
+        await ExpertRegistration.findOne(
+            {
+                EXPERT_EMAIL:
+                    cleanEmail,
+
+                used: false,
+
+                expiresAt: {
+                    $gt:
+                        new Date()
+                }
+            }
+        ).lean();
+
+    if (existing) {
         return {
-            error: "This expert already has an active invitation",
+            error:
+                "This expert already has an active invitation",
             status: 400
         };
     }
 
     /* ===== WEEKLY LIMIT ===== */
-    if (role !== "SUPER_ADMIN") {
-        const [rows] = await db.query(`
-            SELECT COUNT(*) AS count
-            FROM expert_registrations
-            WHERE createdByAdminId = ?
-            AND createdAt >= NOW() - INTERVAL 7 DAY
-        `, [adminId]);
 
-        if (rows[0].count >= 5) {
+    if (
+        role !==
+        "SUPER_ADMIN"
+    ) {
+        const sevenDaysAgo =
+            new Date(
+                Date.now() -
+                7 *
+                24 *
+                60 *
+                60 *
+                1000
+            );
+
+        const count =
+            await ExpertRegistration.countDocuments(
+                {
+                    createdByAdminId:
+                        adminId,
+
+                    createdAt: {
+                        $gte:
+                            sevenDaysAgo
+                    }
+                }
+            );
+
+        if (count >= 5) {
             return {
-                error: "Weekly REG_NO limit reached",
+                error:
+                    "Weekly REG_NO limit reached",
                 status: 403
             };
         }
     }
 
     /* ===== GENERATE UNIQUE REG_NO ===== */
+
     let REG_NO;
     let exists = true;
 
     while (exists) {
-        REG_NO = generateRegNo();
+        REG_NO =
+            generateRegNo();
 
-        const [check] = await db.query(
-            "SELECT id FROM expert_registrations WHERE REG_NO = ?",
-            [REG_NO]
-        );
+        const check =
+            await ExpertRegistration.findOne(
+                {
+                    REG_NO
+                }
+            ).lean();
 
-        if (check.length === 0) exists = false;
+        if (!check) {
+            exists = false;
+        }
     }
 
     /* ===== INSERT ===== */
-    await db.query(`
-        INSERT INTO expert_registrations 
-        (REG_NO, EXPERT_EMAIL, createdByAdminId, used, expiresAt)
-        VALUES (?, ?, ?, FALSE, NOW() + INTERVAL 24 HOUR)
-    `, [REG_NO, cleanEmail, adminId]);
+
+    await ExpertRegistration.create(
+        {
+            REG_NO,
+            EXPERT_EMAIL:
+                cleanEmail,
+
+            createdByAdminId:
+                adminId,
+
+            used: false,
+
+            expiresAt:
+                new Date(
+                    Date.now() +
+                    24 *
+                    60 *
+                    60 *
+                    1000
+                )
+        }
+    );
 
     /* ===== SEND EMAIL ===== */
-    await transporter.sendMail({
-        from: `"Electro-Aid" <${EMAIL_USER}>`,
-        to: cleanEmail,
-        subject: "Your Expert Invitation – Electro-Aid",
-        html: generateEmailHTML(REG_NO)
-    });
+
+    await transporter.sendMail(
+        {
+            from:
+                `"Electro-Aid" <${EMAIL_USER}>`,
+
+            to: cleanEmail,
+
+            subject:
+                "Your Expert Invitation – Electro-Aid",
+
+            html: generateEmailHTML(
+                REG_NO
+            )
+        }
+    );
 
     return { REG_NO };
 };
