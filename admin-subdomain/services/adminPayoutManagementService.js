@@ -1,20 +1,24 @@
+const {
+  PaymentSetting,
+  PayoutGroupRule,
+  PayoutIndividualRule,
+  Assignment
+} = require("../models");
+
 /* ================= LOAD ALL ================= */
 exports.getPayoutSettings = async () => {
-  const [settings] = await db.query(
-    "SELECT payoutPercentage FROM payment_settings LIMIT 1"
-  );
 
-  const [groupRules] = await db.query(
-    "SELECT groupRange, percentage FROM payout_group_rules"
-  );
+  const settings = await PaymentSetting.findOne();
 
-  const [individualRules] = await db.query(
-    "SELECT expertReg, percentage FROM payout_individual_rules"
-  );
+  const groupRules = await PayoutGroupRule.find()
+    .select("groupRange percentage -_id");
+
+  const individualRules = await PayoutIndividualRule.find()
+    .select("REG_NO percentage -_id");
 
   return {
-    globalPercentage: settings.length
-      ? settings[0].payoutPercentage
+    globalPercentage: settings
+      ? settings.payoutPercentage
       : null,
     groupRules,
     individualRules
@@ -23,44 +27,52 @@ exports.getPayoutSettings = async () => {
 
 /* ================= GLOBAL ================= */
 exports.updateGlobalPayout = async (percentage) => {
-  await db.query(
-    "UPDATE payment_settings SET payoutPercentage = ?",
-    [percentage]
+
+  await PaymentSetting.updateOne(
+    {},
+    { $set: { payoutPercentage: percentage } },
+    { upsert: true } // ensures record exists
   );
 };
 
 /* ================= GROUP ================= */
 exports.upsertGroupRule = async (groupRange, percentage) => {
-  await db.query(`
-    INSERT INTO payout_group_rules (groupRange, percentage)
-    VALUES (?, ?)
-    ON DUPLICATE KEY UPDATE percentage = VALUES(percentage)
-  `, [groupRange, percentage]);
+
+  await PayoutGroupRule.updateOne(
+    { groupRange },
+    { $set: { percentage } },
+    { upsert: true }
+  );
 };
 
 /* ================= INDIVIDUAL ================= */
 exports.upsertIndividualRule = async (expertReg, percentage) => {
-  await db.query(`
-    INSERT INTO payout_individual_rules (REG_NO, percentage)
-    VALUES (?, ?)
-    ON DUPLICATE KEY UPDATE percentage = VALUES(percentage)
-  `, [expertReg, percentage]);
+
+  await PayoutIndividualRule.updateOne(
+    { REG_NO: expertReg },
+    { $set: { percentage } },
+    { upsert: true }
+  );
 };
 
 /* ================= ASSIGNMENT ================= */
 exports.getAssignmentByReference = async (reference) => {
-  const [rows] = await db.query(
-    "SELECT budget, status FROM assignments WHERE reference = ?",
-    [reference]
-  );
 
-  return rows.length ? rows[0] : null;
+  const assignment = await Assignment.findOne({ reference })
+    .select("budget status");
+
+  return assignment || null;
 };
 
 exports.updateAssignmentPayout = async (reference, payout, profit) => {
-  await db.query(`
-    UPDATE assignments
-    SET payout = ?, profit = ?
-    WHERE reference = ?
-  `, [payout, profit, reference]);
+
+  await Assignment.updateOne(
+    { reference },
+    {
+      $set: {
+        payout,
+        profit // ⚠️ kept for compatibility
+      }
+    }
+  );
 };
