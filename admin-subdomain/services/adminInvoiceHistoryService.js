@@ -4,7 +4,7 @@ const {
     Expert,
     Assignment,
     ExpertWeeklyPayment
-} = require("../models");
+} = require("../../models");
 
 const {
     getWeekRangeFromDate,
