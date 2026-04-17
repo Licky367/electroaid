@@ -1,32 +1,50 @@
+const {
+    Assignment
+} = require("../models");
+
 /* ================= COUNTS ================= */
-exports.getAssignmentCounts = async () => {
 
-    const [[pending]] = await db.query(
-        `SELECT COUNT(*) AS count FROM assignments WHERE status = 'pending'`
-    );
+exports.getAssignmentCounts =
+async () => {
 
-    const [[accepted]] = await db.query(
-        `SELECT COUNT(*) AS count FROM assignments WHERE status = 'accepted'`
-    );
+    const [
+        pendingCount,
+        acceptedCount,
+        inProgressCount,
+        completedCount,
+        declinedCount
+    ] = await Promise.all([
+        Assignment.countDocuments({
+            status: "pending"
+        }),
 
-    const [[inProgress]] = await db.query(
-        `SELECT COUNT(*) AS count FROM assignments 
-         WHERE status = 'In Progress' OR status = 'Revision Requested'`
-    );
+        Assignment.countDocuments({
+            status: "accepted"
+        }),
 
-    const [[completed]] = await db.query(
-        `SELECT COUNT(*) AS count FROM assignments WHERE status = 'completed'`
-    );
+        Assignment.countDocuments({
+            status: {
+                $in: [
+                    "In Progress",
+                    "Revision Requested"
+                ]
+            }
+        }),
 
-    const [[declined]] = await db.query(
-        `SELECT COUNT(*) AS count FROM assignments WHERE status = 'declined'`
-    );
+        Assignment.countDocuments({
+            status: "completed"
+        }),
+
+        Assignment.countDocuments({
+            status: "declined"
+        })
+    ]);
 
     return {
-        pendingCount: pending.count,
-        acceptedCount: accepted.count,
-        inProgressCount: inProgress.count,
-        completedCount: completed.count,
-        declinedCount: declined.count
+        pendingCount,
+        acceptedCount,
+        inProgressCount,
+        completedCount,
+        declinedCount
     };
 };
