@@ -1,4 +1,4 @@
-const { Client } = require("../../models");
+const { Client } = require("../models");
 
 /* ================= REQUIRE LOGIN (VIEWS) ================= */
 function requireClient(req, res, next) {
