@@ -1,26 +1,28 @@
+const { Client } = require("../models");
+
 /* GET CLIENT */
 exports.getClientById = async (id) => {
-    const [rows] = await db.query(
-        "SELECT * FROM clients WHERE id = ?",
-        [id]
-    );
-    return rows;
+    return await Client.findById(id);
 };
 
 /* UPDATE PROFILE */
 exports.updateClientProfile = async (id, name, phone, image) => {
-    await db.query(
-        `UPDATE clients 
-         SET CLIENT_NAME = ?, CLIENT_PHONE_NUMBER = ?, CLIENT_PROFILE_IMAGE = ?
-         WHERE id = ?`,
-        [name, phone, image, id]
+    return await Client.findByIdAndUpdate(
+        id,
+        {
+            CLIENT_NAME: name,
+            CLIENT_PHONE_NUMBER: phone,
+            CLIENT_PROFILE_IMAGE: image
+        },
+        { new: true }
     );
 };
 
 /* UPDATE PASSWORD */
 exports.updatePassword = async (id, password) => {
-    await db.query(
-        "UPDATE clients SET CLIENT_PASSWORD = ? WHERE id = ?",
-        [password, id]
+    return await Client.findByIdAndUpdate(
+        id,
+        { CLIENT_PASSWORD: password },
+        { new: true }
     );
 };
