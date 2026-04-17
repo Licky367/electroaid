@@ -1,7 +1,7 @@
 const express = require("express");
 const router = express.Router();
 
-const { Payment, Assignment } = require("../models");
+const { Payment, Assignment } = require("../../models");
 
 /* ============================= */
 /* CONSTANTS */
