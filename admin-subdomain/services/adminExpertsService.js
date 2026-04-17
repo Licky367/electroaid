@@ -1,4 +1,4 @@
-const { Expert } = require("../models");
+const { Expert } = require("../../models");
 
 /* ===== GET EXPERTS ===== */
 exports.getExperts = async ({
