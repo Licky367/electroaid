@@ -1,5 +1,3 @@
-require("dotenv").config({ path: "../config.env" });
-
 const express = require("express");
 const router = express.Router();
 
@@ -7,13 +5,13 @@ const bcrypt = require("bcrypt");
 const crypto = require("crypto");
 const nodemailer = require("nodemailer");
 
-const db = require("../../db");
+/* ✅ IMPORT FROM SINGLE MODELS FILE */
+const { Expert, ExpertPasswordReset } = require("../../models");
 
 /* ================= MAIL ================= */
 
 const transporter = nodemailer.createTransport({
-    service
-    : "gmail",
+    service: "gmail",
     auth: {
         user: process.env.EMAIL_USER,
         pass: process.env.EMAIL_PASS
@@ -51,38 +49,28 @@ router.post("/forgot-password", async (req, res) => {
         const EMAIL = EXPERT_EMAIL.trim().toLowerCase();
 
         /* ===== FIND EXPERT ===== */
-        const [experts] = await db.execute(
-            `SELECT id FROM experts WHERE EXPERT_EMAIL = ?`,
-            [EMAIL]
-        );
+        const expert = await Expert.findOne({ EXPERT_EMAIL: EMAIL });
 
-        if (experts.length === 0) {
+        if (!expert) {
             return res.status(400).json({
                 message: "Email not found"
             });
         }
 
-        const expertId = experts[0].id;
-
         /* ===== GENERATE TOKEN ===== */
         const token = generateToken();
-        const expiresAt = new Date(Date.now() + 10 * 60 * 1000); // 10 mins
+        const expiresAt = new Date(Date.now() + 10 * 60 * 1000);
 
         /* ===== DELETE OLD TOKENS ===== */
-        await db.execute(
-            `DELETE FROM expert_password_resets WHERE expertId = ?`,
-            [expertId]
-        );
+        await ExpertPasswordReset.deleteMany({ expertId: expert._id });
 
         /* ===== SAVE TOKEN ===== */
-        await db.execute(
-            `INSERT INTO expert_password_resets 
-            (expertId, token, expiresAt) 
-            VALUES (?, ?, ?)`,
-            [expertId, token, expiresAt]
-        );
+        await ExpertPasswordReset.create({
+            expertId: expert._id,
+            token,
+            expiresAt
+        });
 
-        /* ===== BUILD RESET LINK (FIXED) ===== */
         const resetLink =
             `${process.env.BASE_URL}/expert/reset-password?token=${token}`;
 
@@ -94,14 +82,14 @@ router.post("/forgot-password", async (req, res) => {
             html: `
                 <h3>Password Reset</h3>
                 <p>You requested to reset your password.</p>
-                <p>Click the link below:</p>
+                <p>Click below:</p>
                 <a href="${resetLink}">${resetLink}</a>
-                <p>This link expires in 10 minutes.</p>
+                <p>Expires in 10 minutes.</p>
             `
         });
 
         return res.json({
-            message: "Reset link sent to your email"
+            message: "Reset link sent"
         });
 
     } catch (error) {
@@ -116,14 +104,12 @@ router.post("/forgot-password", async (req, res) => {
 /* ================= RESET PAGE ========================= */
 /* ===================================================== */
 
-router.get("/reset-password", async (req, res) => {
-    const token = req.query.token;
+router.get("/reset-password", (req, res) => {
+    const { token } = req.query;
 
     if (!token) {
         return res.redirect("/expert/forgot-password");
     }
-
-    /* Optional: you can verify token exists before rendering */
 
     res.render("expert-reset-password", { token });
 });
@@ -146,25 +132,17 @@ router.post("/reset-password", async (req, res) => {
         const newPassword = EXPERT_NEW_PASSWORD.trim();
 
         /* ===== FIND TOKEN ===== */
-        const [rows] = await db.execute(
-            `SELECT * FROM expert_password_resets WHERE token = ?`,
-            [token]
-        );
+        const reset = await ExpertPasswordReset.findOne({ token });
 
-        if (rows.length === 0) {
+        if (!reset) {
             return res.status(400).json({
                 message: "Invalid or expired token"
             });
         }
 
-        const reset = rows[0];
-
         /* ===== CHECK EXPIRY ===== */
-        if (new Date(reset.expiresAt) < new Date()) {
-            await db.execute(
-                `DELETE FROM expert_password_resets WHERE id = ?`,
-                [reset.id]
-            );
+        if (reset.expiresAt < new Date()) {
+            await ExpertPasswordReset.deleteOne({ _id: reset._id });
 
             return res.status(400).json({
                 message: "Token expired"
@@ -175,16 +153,12 @@ router.post("/reset-password", async (req, res) => {
         const hashedPassword = await bcrypt.hash(newPassword, 10);
 
         /* ===== UPDATE PASSWORD ===== */
-        await db.execute(
-            `UPDATE experts SET EXPERT_PASSWORD = ? WHERE id = ?`,
-            [hashedPassword, reset.expertId]
-        );
+        await Expert.findByIdAndUpdate(reset.expertId, {
+            EXPERT_PASSWORD: hashedPassword
+        });
 
         /* ===== DELETE TOKEN ===== */
-        await db.execute(
-            `DELETE FROM expert_password_resets WHERE id = ?`,
-            [reset.id]
-        );
+        await ExpertPasswordReset.deleteOne({ _id: reset._id });
 
         return res.json({
             message: "Password reset successful"
