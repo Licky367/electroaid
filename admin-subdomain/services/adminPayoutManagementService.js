@@ -3,7 +3,7 @@ const {
   PayoutGroupRule,
   PayoutIndividualRule,
   Assignment
-} = require("../models");
+} = require("../../models");
 
 /* ================= LOAD ALL ================= */
 exports.getPayoutSettings = async () => {
