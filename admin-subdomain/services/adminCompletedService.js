@@ -2,7 +2,7 @@ const {
     Assignment,
     Expert,
     Submission
-} = require("../models");
+} = require("../../models");
 
 /* ================= LIST ================= */
 
