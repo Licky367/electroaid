@@ -1,5 +1,21 @@
 const express = require("express");
 const router = express.Router();
+
+const mongoose = require("mongoose");
+const nodemailer = require("nodemailer");
+
+/* ✅ MODELS */
+const { Assignment, AssignmentFile, Expert } = require("../../models");
+
+/* ================= MAIL ================= */
+const transporter = nodemailer.createTransport({
+  service: "gmail",
+  auth: {
+    user: process.env.EMAIL_USER,
+    pass: process.env.EMAIL_PASS
+  }
+});
+
 /* ================= AUTH ================= */
 function requireExpert(req, res, next){
   if(!req.session.expert){
@@ -10,14 +26,12 @@ function requireExpert(req, res, next){
 
 /* ================= VIEWS ================= */
 
-/* MAIN PAGE */
 router.get("/", requireExpert, (req, res) => {
   res.render("expert-pending", {
     EXPERT_NAME: req.session.expert.name
   });
 });
 
-/* VIEW SINGLE */
 router.get("/view", requireExpert, (req, res) => {
   res.render("expert-assignment-view", {
     EXPERT_NAME: req.session.expert.name
@@ -30,14 +44,11 @@ router.get("/view", requireExpert, (req, res) => {
 router.get("/api/pending-assignments", requireExpert, async (req, res) => {
   try {
 
-    const [rows] = await db.query(`
-      SELECT reference, title, CLIENT_NAME, dueDate, payout, approvalLocked
-      FROM assignments
-      WHERE status = 'pending'
-      ORDER BY createdAt DESC
-    `);
+    const assignments = await Assignment.find({ status: "pending" })
+      .select("reference title CLIENT_NAME dueDate payout approvalLocked")
+      .sort({ createdAt: -1 });
 
-    res.json(rows);
+    res.json(assignments);
 
   } catch (err) {
     console.error(err);
@@ -51,28 +62,22 @@ router.get("/api/assignment/:reference", requireExpert, async (req, res) => {
 
     const { reference } = req.params;
 
-    const [rows] = await db.query(`
-      SELECT *
-      FROM assignments
-      WHERE reference = ?
-      LIMIT 1
-    `, [reference]);
+    const assignment = await Assignment.findOne({ reference });
 
-    if (!rows.length) {
+    if (!assignment) {
       return res.status(404).json({ message: "Not found" });
     }
 
-    const assignment = rows[0];
+    const files = await AssignmentFile.find({ reference })
+      .select("fileUrl fileName");
 
-    const [files] = await db.query(`
-      SELECT fileUrl AS url, fileName AS name
-      FROM assignment_files
-      WHERE reference = ?
-    `, [reference]);
+    const result = assignment.toObject();
+    result.files = files.map(f => ({
+      url: f.fileUrl,
+      name: f.fileName
+    }));
 
-    assignment.files = files;
-
-    res.json(assignment);
+    res.json(result);
 
   } catch (err) {
     console.error(err);
@@ -83,7 +88,8 @@ router.get("/api/assignment/:reference", requireExpert, async (req, res) => {
 /* ACCEPT ASSIGNMENT */
 router.post("/api/assignment/:reference/accept", requireExpert, async (req, res) => {
 
-  const connection = await db.getConnection();
+  const session = await mongoose.startSession();
+  session.startTransaction();
 
   try {
 
@@ -91,56 +97,49 @@ router.post("/api/assignment/:reference/accept", requireExpert, async (req, res)
 
     const expertId = req.session.expert.id;
     const expertName = req.session.expert.name;
-    const status = req.session.expert.status; // active | suspended
+    const expertStatus = req.session.expert.status;
 
-    await connection.beginTransaction();
+    /* ================= GET ASSIGNMENT ================= */
+    const assignment = await Assignment.findOne({ reference }).session(session);
 
-    /* ================= CHECK STATE ================= */
-    const [[current]] = await connection.query(`
-      SELECT status, approvalLocked
-      FROM assignments
-      WHERE reference = ?
-      LIMIT 1
-    `, [reference]);
-
-    if (!current) {
-      await connection.rollback();
+    if (!assignment) {
+      await session.abortTransaction();
       return res.status(404).json({ message: "Not found" });
     }
 
-    if (current.approvalLocked) {
-      await connection.rollback();
+    if (assignment.approvalLocked) {
+      await session.abortTransaction();
       return res.status(400).json({ message: "Awaiting admin approval" });
     }
 
-    if (current.status !== "pending") {
-      await connection.rollback();
+    if (assignment.status !== "pending") {
+      await session.abortTransaction();
       return res.status(400).json({ message: "Already taken" });
     }
 
     /* ================= SUSPENDED EXPERT ================= */
-    if (status === "suspended") {
+    if (expertStatus === "suspended") {
 
-      /* LOCK (allowed — you approved this design) */
-      await connection.query(`
-        UPDATE assignments
-        SET approvalLocked = TRUE
-        WHERE reference = ?
-      `, [reference]);
+      assignment.approvalLocked = true;
+      await assignment.save({ session });
 
-      /* SEND APPROVAL REQUEST (NO EXTRA LOGIC) */
-      await connection.query(`
-        INSERT INTO notifications (ADMIN_ID, title, message, type, reference)
-        VALUES (?, ?, ?, ?, ?)
-      `, [
-        req.session.expert.adminTarget || null, // uses your system if available
-        "Approval Required",
-        `Suspended expert ${expertName} requested approval for assignment ${reference}.`,
-        "admin-approval",
-        reference
-      ]);
+      /* 🔥 EMAIL ADMIN INSTEAD OF NOTIFICATION */
+      const adminEmail = process.env.ADMIN_EMAIL;
 
-      await connection.commit();
+      if (adminEmail) {
+        await transporter.sendMail({
+          from: `"${process.env.EMAIL_FROM_NAME}" <${process.env.EMAIL_USER}>`,
+          to: adminEmail,
+          subject: "Approval Required",
+          text: `
+Suspended expert ${expertName} requested approval.
+
+Assignment Reference: ${reference}
+          `
+        });
+      }
+
+      await session.commitTransaction();
 
       return res.json({
         message: "Approval request sent"
@@ -148,50 +147,46 @@ router.post("/api/assignment/:reference/accept", requireExpert, async (req, res)
     }
 
     /* ================= NORMAL ACCEPT ================= */
-    const [result] = await connection.query(`
-      UPDATE assignments
-      SET
-        status = 'accepted',
-        EXPERT_ID = ?,
-        EXPERT_NAME = ?,
-        acceptedAt = NOW()
-      WHERE reference = ?
-      AND status = 'pending'
-      AND approvalLocked = FALSE
-    `, [expertId, expertName, reference]);
+    const updated = await Assignment.findOneAndUpdate(
+      {
+        reference,
+        status: "pending",
+        approvalLocked: false
+      },
+      {
+        status: "accepted",
+        EXPERT_ID: expertId,
+        EXPERT_NAME: expertName,
+        acceptedAt: new Date()
+      },
+      { new: true, session }
+    );
 
-    if (result.affectedRows === 0) {
-      await connection.rollback();
+    if (!updated) {
+      await session.abortTransaction();
       return res.status(400).json({ message: "Already taken or locked" });
     }
 
-    /* ================= GET CLIENT ================= */
-    const [[assignment]] = await connection.query(`
-      SELECT CLIENT_ID, CLIENT_NAME, title
-      FROM assignments
-      WHERE reference = ?
-    `, [reference]);
+    /* ================= EMAIL CLIENT ================= */
+    if (updated.CLIENT_EMAIL) {
+      await transporter.sendMail({
+        from: `"${process.env.EMAIL_FROM_NAME}" <${process.env.EMAIL_USER}>`,
+        to: updated.CLIENT_EMAIL,
+        subject: "Assignment Accepted",
+        text: `
+Dear ${updated.CLIENT_NAME},
 
-    /* ================= CLIENT NOTIFICATION ================= */
-    await connection.query(`
-      INSERT INTO notifications (CLIENT_ID, title, message, type, reference)
-      VALUES (?, ?, ?, ?, ?)
-    `, [
-      assignment.CLIENT_ID,
-      "Assignment Accepted",
-      `Dear ${assignment.CLIENT_NAME},
+Your assignment titled "${updated.title}" (Ref: ${reference}) has been accepted by ${expertName}.
 
-Your assignment titled "${assignment.title}" (Ref: ${reference}) has been successfully assigned to ${expertName}.
+Please log in to your dashboard to proceed.
 
-Please proceed to your assignments dashboard to initiate the work process.
+Regards,
+${process.env.EMAIL_FROM_NAME}
+        `
+      });
+    }
 
-Regards,  
-Electro-Aid Technologies`,
-      "assignment",
-      reference
-    ]);
-
-    await connection.commit();
+    await session.commitTransaction();
 
     res.json({
       success: true,
@@ -200,12 +195,12 @@ Electro-Aid Technologies`,
 
   } catch (err) {
 
-    await connection.rollback();
+    await session.abortTransaction();
     console.error(err);
     res.status(500).json({ message: "Server error" });
 
   } finally {
-    connection.release();
+    session.endSession();
   }
 });
 
