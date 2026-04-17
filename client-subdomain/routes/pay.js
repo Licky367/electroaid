@@ -4,7 +4,7 @@ const axios = require("axios");
 const paypal = require("@paypal/checkout-server-sdk");
 
 const { getUSDtoKES } = require("../../utils/exchangeRate");
-const { Assignment, Payment } = require("../../models");
+const { Assignment, Payment } = require(../models");
 
 /* ============================= */
 /* CONSTANTS */
