@@ -1,4 +1,4 @@
-const { Assignment, AssignmentFile } = require("../models");
+const { Assignment, AssignmentFile } = require("../../models");
 
 /* ================= LIST ================= */
 exports.fetchWaitingAssignments = async () => {
