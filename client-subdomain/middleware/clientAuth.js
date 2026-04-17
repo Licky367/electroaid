@@ -1,4 +1,4 @@
-const db = require("../../db");
+const { Client } = require("../../models");
 
 /* ================= REQUIRE LOGIN (VIEWS) ================= */
 function requireClient(req, res, next) {
@@ -19,27 +19,25 @@ function requireClientAPI(req, res, next) {
 /* ================= ATTACH CLIENT (GLOBAL) ================= */
 const attachClient = async (req, res, next) => {
     try {
-        // ✅ 1. If already stored in session (FAST PATH)
+        /* ✅ 1. FAST PATH (already in session) */
         if (req.session.client) {
             res.locals.client = req.session.client;
             return next();
         }
 
-        // ⚠️ 2. Fallback (older sessions using clientId)
+        /* ⚠️ 2. FALLBACK (older sessions using clientId) */
         if (req.session.clientId) {
-            const [rows] = await db.pool.query(
-                "SELECT id, CLIENT_NAME, CLIENT_PROFILE_IMAGE FROM clients WHERE id = ?",
-                [req.session.clientId]
-            );
+            const user = await Client.findById(req.session.clientId)
+                .select("_id CLIENT_NAME CLIENT_PROFILE_IMAGE");
 
-            if (rows.length > 0) {
+            if (user) {
                 const clientData = {
-                    id: rows[0].id,
-                    name: rows[0].CLIENT_NAME,
-                    image: rows[0].CLIENT_PROFILE_IMAGE
+                    id: user._id, // ✅ Mongo uses _id
+                    name: user.CLIENT_NAME,
+                    image: user.CLIENT_PROFILE_IMAGE
                 };
 
-                // 🔥 Save to session (prevents future DB hits)
+                /* 🔥 Save to session (avoid future DB hits) */
                 req.session.client = clientData;
 
                 res.locals.client = clientData;
