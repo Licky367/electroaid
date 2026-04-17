@@ -7,7 +7,7 @@ const {
   AssignmentFile,
   Submission,
   Expert
-} = require("../models");
+} = require("../../models");
 
 const { requireClient, requireClientAPI } = require("../middleware/clientAuth");
 
