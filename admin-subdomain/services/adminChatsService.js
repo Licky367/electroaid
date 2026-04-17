@@ -1,7 +1,7 @@
 const {
     Message,
     Client
-} = require("../models");
+} = require("../../models");
 
 /* ================= USERS ================= */
 
