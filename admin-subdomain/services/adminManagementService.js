@@ -1,4 +1,4 @@
-const { Admin } = require("../models");
+const { Admin } = require("../../models");
 
 /* ===== GET ALL ADMINS ===== */
 exports.getAllAdmins = async () => {
