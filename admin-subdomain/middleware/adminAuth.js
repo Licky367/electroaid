@@ -10,7 +10,7 @@ const adminAuth = (req, res, next) => {
 
         const admin = req.session.admin;
 
-        if (!admin.id || !admin.ADMIN_EMAIL) {
+        if (!admin._id || !admin.ADMIN_EMAIL) {
             req.session.destroy(() => {
                 return res.redirect("/admin/auth/login");
             });
