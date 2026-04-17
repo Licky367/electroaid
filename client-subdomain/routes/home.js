@@ -1,6 +1,8 @@
 const express = require("express");
 const router = express.Router();
 
+const { Client } = require("../models");
+
 /* ===============================
 HOME (ENTRY POINT ONLY)
 =============================== */
@@ -8,15 +10,12 @@ router.get("/", async (req, res) => {
     try {
         let client = null;
 
-        /* ✅ ONLY USE clientId FROM SESSION */
+        /* ✅ LOGIN IS OPTIONAL */
         if (req.session && req.session.clientId) {
-            const [rows] = await db.query(
-                "SELECT * FROM clients WHERE id = ?",
-                [req.session.clientId]
-            );
+            const user = await Client.findById(req.session.clientId);
 
-            if (rows.length > 0) {
-                client = rows[0];
+            if (user) {
+                client = user;
             }
         }
 
