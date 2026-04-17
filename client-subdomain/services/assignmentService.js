@@ -1,7 +1,9 @@
 const { generateReference } = require("../utils/referenceGenerator");
 const { convertDeadline } = require("../utils/deadlineConverter");
 
-exports.createAssignment = async (connection, data) => {
+const { Assignment, AssignmentFile, DailyCount } = require("../../models");
+
+exports.createAssignment = async (data) => {
 
     const {
         clientId,
@@ -25,52 +27,44 @@ exports.createAssignment = async (connection, data) => {
         throw new Error("Missing required fields");
     }
 
-    const { reference, counts } =
-        await generateReference(connection, type);
+    const { reference, counts } = await generateReference(type);
 
-    const { utcDate, eatDate } =
-        convertDeadline(deadline);
+    const { utcDate, eatDate } = convertDeadline(deadline);
 
-    /* INSERT */
-    await connection.query(`
-        INSERT INTO assignments (
-            CLIENT_ID, CLIENT_NAME, reference,
-            subject, title, instructions,
-            deadline, _dueDate, dueDate,
-            timezone, budget, status
-        ) VALUES (?,?,?,?,?,?,?,?,?,?,?,?)`,
-        [
-            clientId,
-            clientName,
-            reference,
-            subject,
-            title,
-            instructions,
-            deadline,
-            utcDate,
-            eatDate,
-            timezone,
-            budget,
-            "pending"
-        ]
-    );
+    /* ============================= */
+    /* INSERT ASSIGNMENT */
+    /* ============================= */
+    await Assignment.create({
+        CLIENT_ID: clientId,
+        CLIENT_NAME: clientName,
+        reference,
+        subject,
+        title,
+        instructions,
+        deadline,
+        _dueDate: utcDate,
+        dueDate: eatDate,
+        timezone,
+        budget,
+        status: "pending"
+    });
 
+    /* ============================= */
     /* FILES */
+    /* ============================= */
     if (files && files.length) {
-        for (let file of files) {
-            await connection.query(`
-                INSERT INTO assignment_files (reference, fileUrl, fileName)
-                VALUES (?,?,?)`,
-                [
-                    reference,
-                    `/uploads/assignments/${file.filename}`,
-                    file.originalname
-                ]
-            );
-        }
+        const fileDocs = files.map(file => ({
+            reference,
+            fileUrl: `/uploads/assignments/${file.filename}`,
+            fileName: file.originalname
+        }));
+
+        await AssignmentFile.insertMany(fileDocs);
     }
 
+    /* ============================= */
     /* COUNTS */
+/* ============================= */
     let { academicCount, articleCount, codingCount, totalCount } = counts;
 
     if (type === "academic") academicCount++;
@@ -79,11 +73,15 @@ exports.createAssignment = async (connection, data) => {
 
     totalCount++;
 
-    await connection.query(`
-        UPDATE assignment_daily_counts
-        SET academicCount=?, articleCount=?, codingCount=?, totalCount=?
-        WHERE date=CURDATE()`,
-        [academicCount, articleCount, codingCount, totalCount]
+    await DailyCount.updateOne(
+        { date: new Date().toISOString().split("T")[0] },
+        {
+            academicCount,
+            articleCount,
+            codingCount,
+            totalCount
+        },
+        { upsert: true }
     );
 
     return { reference, title };
