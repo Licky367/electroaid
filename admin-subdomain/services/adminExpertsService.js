@@ -1,64 +1,86 @@
+const { Expert } = require("../models");
+
 /* ===== GET EXPERTS ===== */
-exports.getExperts = async ({ page = 1, search = "" }) => {
+exports.getExperts = async ({
+    page = 1,
+    search = ""
+}) => {
 
     const limit = 10;
-    const offset = (page - 1) * limit;
+    const skip =
+        (page - 1) * limit;
 
-    let query = `
-        SELECT 
-            id,
-            REG_NO,
-            EXPERT_NAME,
-            EXPERT_EMAIL,
-            status,
-            createdAt
-        FROM experts
-    `;
-
-    let params = [];
+    let filter = {};
 
     if (search) {
-        query += `
-            WHERE 
-                REG_NO LIKE ? OR
-                EXPERT_NAME LIKE ? OR
-                EXPERT_EMAIL LIKE ?
-        `;
-        params.push(`%${search}%`, `%${search}%`, `%${search}%`);
+        filter.$or = [
+            {
+                REG_NO: {
+                    $regex: search,
+                    $options: "i"
+                }
+            },
+            {
+                EXPERT_NAME: {
+                    $regex: search,
+                    $options: "i"
+                }
+            },
+            {
+                EXPERT_EMAIL: {
+                    $regex: search,
+                    $options: "i"
+                }
+            }
+        ];
     }
 
-    query += `
-        ORDER BY createdAt DESC
-        LIMIT ? OFFSET ?
-    `;
-
-    params.push(limit, offset);
-
-    const [experts] = await db.query(query, params);
+    const experts =
+        await Expert.find(filter)
+            .select(
+                "_id REG_NO EXPERT_NAME EXPERT_EMAIL status createdAt"
+            )
+            .sort({
+                createdAt: -1
+            })
+            .skip(skip)
+            .limit(limit)
+            .lean();
 
     return experts;
 };
 
 /* ===== SUSPEND ===== */
-exports.suspendExpert = async (id) => {
-    await db.query(
-        "UPDATE experts SET status='suspended' WHERE id=?",
-        [id]
+exports.suspendExpert =
+async id => {
+
+    await Expert.findByIdAndUpdate(
+        id,
+        {
+            status:
+                "suspended"
+        }
     );
 };
 
 /* ===== UNSUSPEND ===== */
-exports.unsuspendExpert = async (id) => {
-    await db.query(
-        "UPDATE experts SET status='active' WHERE id=?",
-        [id]
+exports.unsuspendExpert =
+async id => {
+
+    await Expert.findByIdAndUpdate(
+        id,
+        {
+            status:
+                "active"
+        }
     );
 };
 
 /* ===== DELETE ===== */
-exports.deleteExpert = async (id) => {
-    await db.query(
-        "DELETE FROM experts WHERE id=?",
-        [id]
+exports.deleteExpert =
+async id => {
+
+    await Expert.findByIdAndDelete(
+        id
     );
 };
