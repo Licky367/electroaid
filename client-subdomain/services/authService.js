@@ -1,4 +1,4 @@
-const { Client, ClientPasswordReset } = require("../models");
+const { Client, ClientPasswordReset } = require("../../models");
 
 // Find client by email
 exports.findByEmail = async (email) => {
