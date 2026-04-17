@@ -1,4 +1,4 @@
-const { Payment, Assignment } = require("../models");
+const { Payment, Assignment } = require("../../models");
 
 /* ============================= */
 /* DAILY STATS */
