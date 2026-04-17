@@ -1,11 +1,12 @@
-require("dotenv").config({ path: "../config.env" });
-
 const express = require("express");
 const router = express.Router();
 
 const multer = require("multer");
 const path = require("path");
 const bcrypt = require("bcrypt");
+
+/* ✅ MODELS (from your single models.js) */
+const { Expert, Assignment } = require("../../models");
 
 /* ===================================================== */
 /* ================= AUTH =============================== */
@@ -35,7 +36,7 @@ const storage = multer.diskStorage({
 
 const upload = multer({
     storage,
-    limits: { fileSize: 5 * 1024 * 1024 }, // 5MB
+    limits: { fileSize: 5 * 1024 * 1024 },
 });
 
 /* ===================================================== */
@@ -45,33 +46,22 @@ const upload = multer({
 router.get("/profile", requireExpert, async (req, res) => {
     try {
 
-        const EXPERT_ID = req.session.EXPERT_ID;
+        const EXPERT_ID = req.session.expert.id;
 
-        const [expertResult] = await db.execute(
-            `SELECT 
-                EXPERT_NAME,
-                EXPERT_EMAIL,
-                EXPERT_PHONE,
-                REG_NO,
-                EXPERT_PROFILE_IMAGE
-             FROM experts
-             WHERE id = ?`,
-            [EXPERT_ID]
+        /* ===== GET EXPERT ===== */
+        const expert = await Expert.findById(EXPERT_ID).select(
+            "EXPERT_NAME EXPERT_EMAIL EXPERT_PHONE REG_NO EXPERT_PROFILE_IMAGE"
         );
 
-        if (expertResult.length === 0){
+        if (!expert){
             return res.send("Expert not found");
         }
 
-        const expert = expertResult[0];
-
-        const [assignments] = await db.execute(
-            `SELECT rating, payout
-             FROM assignments
-             WHERE EXPERT_ID = ?
-             AND status = 'completed'`,
-            [EXPERT_ID]
-        );
+        /* ===== GET COMPLETED ASSIGNMENTS ===== */
+        const assignments = await Assignment.find({
+            EXPERT_ID: EXPERT_ID,
+            status: "completed"
+        }).select("rating payout");
 
         const totalCompleted = assignments.length;
 
@@ -90,7 +80,7 @@ router.get("/profile", requireExpert, async (req, res) => {
             totalCompleted ? totalPayout / totalCompleted : 0;
 
         res.render("expert-profile", {
-            ...expert,
+            ...expert.toObject(),
             totalCompleted,
             averageRating,
             totalPayout,
@@ -110,25 +100,17 @@ router.get("/profile", requireExpert, async (req, res) => {
 router.get("/edit", requireExpert, async (req, res) => {
     try {
 
-        const EXPERT_ID = req.session.EXPERT_ID;
+        const EXPERT_ID = req.session.expert.id;
 
-        const [rows] = await db.execute(
-            `SELECT 
-                EXPERT_NAME,
-                EXPERT_EMAIL,
-                EXPERT_PHONE,
-                REG_NO,
-                EXPERT_PROFILE_IMAGE
-             FROM experts
-             WHERE id = ?`,
-            [EXPERT_ID]
+        const expert = await Expert.findById(EXPERT_ID).select(
+            "EXPERT_NAME EXPERT_EMAIL EXPERT_PHONE REG_NO EXPERT_PROFILE_IMAGE"
         );
 
-        if (rows.length === 0){
+        if (!expert){
             return res.send("Expert not found");
         }
 
-        res.render("expert-edit", rows[0]);
+        res.render("expert-edit", expert.toObject());
 
     } catch (err){
         console.error(err);
@@ -147,7 +129,7 @@ router.post(
     async (req, res) => {
         try {
 
-            const EXPERT_ID = req.session.EXPERT_ID;
+            const EXPERT_ID = req.session.expert.id;
 
             const {
                 EXPERT_NAME,
@@ -155,42 +137,34 @@ router.post(
                 EXPERT_PASSWORD
             } = req.body;
 
-            /* ===== GET CURRENT DATA ===== */
-            const [rows] = await db.execute(
-                `SELECT EXPERT_PROFILE_IMAGE FROM experts WHERE id = ?`,
-                [EXPERT_ID]
-            );
+            /* ===== GET CURRENT ===== */
+            const expert = await Expert.findById(EXPERT_ID);
 
-            if(rows.length === 0){
+            if(!expert){
                 return res.status(404).json({ message: "Expert not found" });
             }
 
-            let profileImage = rows[0].EXPERT_PROFILE_IMAGE;
+            let profileImage = expert.EXPERT_PROFILE_IMAGE;
 
-            /* ===== HANDLE IMAGE ===== */
+            /* ===== IMAGE ===== */
             if(req.file){
                 profileImage = `/uploads/${req.file.filename}`;
             }
 
-            /* ===== BUILD QUERY DYNAMICALLY ===== */
-            let query = `
-                UPDATE experts 
-                SET EXPERT_NAME = ?, EXPERT_PHONE = ?, EXPERT_PROFILE_IMAGE = ?
-            `;
+            /* ===== UPDATE OBJECT ===== */
+            const updateData = {
+                EXPERT_NAME,
+                EXPERT_PHONE,
+                EXPERT_PROFILE_IMAGE: profileImage
+            };
 
-            let params = [EXPERT_NAME, EXPERT_PHONE, profileImage];
-
-            /* ===== HANDLE PASSWORD ===== */
+            /* ===== PASSWORD ===== */
             if(EXPERT_PASSWORD){
                 const hashedPassword = await bcrypt.hash(EXPERT_PASSWORD, 10);
-                query += `, EXPERT_PASSWORD = ?`;
-                params.push(hashedPassword);
+                updateData.EXPERT_PASSWORD = hashedPassword;
             }
 
-            query += ` WHERE id = ?`;
-            params.push(EXPERT_ID);
-
-            await db.execute(query, params);
+            await Expert.findByIdAndUpdate(EXPERT_ID, updateData);
 
             return res.json({
                 message: "Profile updated successfully"
