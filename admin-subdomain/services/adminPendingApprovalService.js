@@ -4,7 +4,7 @@ const {
   Assignment,
   Client,
   Expert
-} = require("../models");
+} = require("../../models");
 
 /* ===== GET WAITING ===== */
 exports.getWaitingApprovals = async () => {
