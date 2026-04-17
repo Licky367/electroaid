@@ -1,4 +1,4 @@
-const { Message } = require("../models");
+const { Message } = require("../../models");
 
 exports.getMessages = async (clientId) => {
     return await Message.find({
