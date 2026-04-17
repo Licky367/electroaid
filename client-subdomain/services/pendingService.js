@@ -1,55 +1,62 @@
+const { Assignment, AssignmentFile } = require("../../models");
+
 module.exports = {
 
     getPendingAssignments: async (CLIENT_ID) => {
-        const [rows] = await db.query(
-            `SELECT reference, title
-             FROM assignments
-             WHERE CLIENT_ID = ? AND status = 'pending'
-             ORDER BY createdAt DESC`,
-            [CLIENT_ID]
-        );
-        return rows;
+        return await Assignment.find({
+            CLIENT_ID,
+            status: "pending"
+        })
+        .select("reference title")
+        .sort({ createdAt: -1 });
     },
 
     getAssignmentDetails: async (CLIENT_ID, reference) => {
-        const [rows] = await db.query(
-            `SELECT reference, title, budget, deadline, instructions
-             FROM assignments
-             WHERE reference = ? AND CLIENT_ID = ?`,
-            [reference, CLIENT_ID]
-        );
+        const assignment = await Assignment.findOne({
+            reference,
+            CLIENT_ID
+        }).select("reference title budget deadline instructions");
 
-        if (!rows.length) return null;
+        if (!assignment) return null;
 
-        const assignment = rows[0];
+        const files = await AssignmentFile.find({
+            reference
+        }).select("fileName fileUrl");
 
-        const [files] = await db.query(
-            `SELECT fileName, fileUrl
-             FROM assignment_files
-             WHERE reference = ?`,
-            [reference]
-        );
-
-        assignment.files = files;
-        return assignment;
+        return {
+            ...assignment.toObject(),
+            files
+        };
     },
 
     updateAssignment: async (CLIENT_ID, payload) => {
-        const { reference, budget, deadline, instructions, fileName, fileUrl } = payload;
+        const {
+            reference,
+            budget,
+            deadline,
+            instructions,
+            fileName,
+            fileUrl
+        } = payload;
 
-        await db.query(
-            `UPDATE assignments
-             SET budget = ?, deadline = ?, instructions = ?
-             WHERE reference = ? AND CLIENT_ID = ?`,
-            [budget || null, deadline || null, instructions || null, reference, CLIENT_ID]
+        await Assignment.updateOne(
+            {
+                reference,
+                CLIENT_ID
+            },
+            {
+                budget: budget || null,
+                deadline: deadline || null,
+                instructions: instructions || null
+            }
         );
 
         if (fileName && fileUrl) {
-            await db.query(
-                `INSERT INTO assignment_files (reference, fileName, fileUrl)
-                 VALUES (?, ?, ?)`,
-                [reference, fileName, fileUrl]
-            );
+            await AssignmentFile.create({
+                reference,
+                fileName,
+                fileUrl
+            });
         }
     }
 
