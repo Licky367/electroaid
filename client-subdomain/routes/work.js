@@ -1,7 +1,14 @@
-// routes/work.js
 const express = require("express");
 const router = express.Router();
 const nodemailer = require("nodemailer");
+
+const {
+  Assignment,
+  AssignmentFile,
+  Submission,
+  Expert
+} = require("../models");
+
 const { requireClient, requireClientAPI } = require("../middleware/clientAuth");
 
 /* ================= EMAIL SETUP ================= */
@@ -20,25 +27,21 @@ router.get("/", requireClient, async (req, res) => {
   try {
     const CLIENT_ID = req.session.client.id;
 
-    const [assignments] = await db.query(
-      `SELECT * FROM assignments 
-       WHERE CLIENT_ID = ? 
-       AND status IN ('In Progress', 'Revision Requested')
-       ORDER BY createdAt DESC`,
-      [CLIENT_ID]
-    );
+    const assignments = await Assignment.find({
+      CLIENT_ID,
+      status: { $in: ["In Progress", "Revision Requested"] }
+    }).sort({ createdAt: -1 });
 
     for (const a of assignments) {
-      const [files] = await db.query(
-        `SELECT fileUrl, fileName 
-         FROM assignment_files 
-         WHERE reference = ?`,
-        [a.reference]
-      );
+      const files = await AssignmentFile.find({
+        reference: a.reference
+      }).select("fileUrl fileName");
+
       a.files = files;
 
       const depositPaid = Number(a.depositPaid || 0);
       const budget = Number(a.budget || 0);
+
       a.arrears = budget - depositPaid;
     }
 
@@ -62,49 +65,35 @@ router.get("/chat", requireClient, async (req, res) => {
     const reference = req.query.ref;
     if (!reference) return res.redirect("/assignments/work");
 
-    const [[assignment]] = await db.query(
-      `SELECT * FROM assignments WHERE reference = ? AND CLIENT_ID = ?`,
-      [reference, req.session.client.id]
-    );
+    const assignment = await Assignment.findOne({
+      reference,
+      CLIENT_ID: req.session.client.id
+    });
 
     if (!assignment) return res.redirect("/assignments/work");
 
-    const [assignmentFiles] = await db.query(
-      `SELECT fileUrl, fileName 
-       FROM assignment_files 
-       WHERE reference = ?`,
-      [reference]
-    );
+    const assignmentFiles = await AssignmentFile.find({
+      reference
+    }).select("fileUrl fileName");
 
-    const [submissionFiles] = await db.query(
-      `SELECT fileUrl, fileName 
-       FROM submissions 
-       WHERE reference = ? 
-       AND type = 'submission'
-       AND fileUrl IS NOT NULL`,
-      [reference]
-    );
+    const submissionFiles = await Submission.find({
+      reference,
+      type: "submission",
+      fileUrl: { $ne: null }
+    }).select("fileUrl fileName");
 
-    const [[submissionTextRow]] = await db.query(
-      `SELECT submissionText 
-       FROM submissions 
-       WHERE reference = ? 
-       AND type = 'submission'
-       AND submissionText IS NOT NULL
-       ORDER BY createdAt DESC LIMIT 1`,
-      [reference]
-    );
+    const latestSubmission = await Submission.findOne({
+      reference,
+      type: "submission",
+      submissionText: { $ne: null }
+    }).sort({ createdAt: -1 });
 
-    const submissionText = submissionTextRow?.submissionText || "";
+    const submissionText = latestSubmission?.submissionText || "";
 
-    const [comments] = await db.query(
-      `SELECT submissionText AS message, isClient 
-       FROM submissions 
-       WHERE reference = ? 
-       AND type = 'comment'
-       ORDER BY createdAt ASC`,
-      [reference]
-    );
+    const comments = await Submission.find({
+      reference,
+      type: "comment"
+    }).sort({ createdAt: 1 }).select("submissionText isClient");
 
     const expertSubmitted =
       submissionFiles.length > 0 || submissionText.length > 0;
@@ -139,14 +128,15 @@ router.get("/chat", requireClient, async (req, res) => {
 router.post("/api/comments", requireClientAPI, async (req, res) => {
   try {
     const { reference, message } = req.body;
-    if (!reference || !message) return res.status(400).json({ error: "Invalid data" });
+    if (!reference || !message)
+      return res.status(400).json({ error: "Invalid data" });
 
-    await db.query(
-      `INSERT INTO submissions 
-       (reference, submissionText, type, isClient)
-       VALUES (?, ?, 'comment', TRUE)`,
-      [reference, message]
-    );
+    await Submission.create({
+      reference,
+      submissionText: message,
+      type: "comment",
+      isClient: true
+    });
 
     res.sendStatus(200);
 
@@ -163,44 +153,49 @@ router.post("/api/comments", requireClientAPI, async (req, res) => {
 router.post("/api/complete-assignment", requireClientAPI, async (req, res) => {
   try {
     const { reference, rating, feedback } = req.body;
-    if (!reference) return res.status(400).json({ error: "Reference required" });
+    if (!reference)
+      return res.status(400).json({ error: "Reference required" });
 
-    const [[assignment]] = await db.query(
-      `SELECT budget, depositPaid 
-       FROM assignments 
-       WHERE reference = ? AND CLIENT_ID = ?`,
-      [reference, req.session.client.id]
-    );
+    const assignment = await Assignment.findOne({
+      reference,
+      CLIENT_ID: req.session.client.id
+    }).select("budget depositPaid");
 
-    if (!assignment) return res.status(404).json({ error: "Assignment not found" });
+    if (!assignment)
+      return res.status(404).json({ error: "Assignment not found" });
 
-    const [subs] = await db.query(
-      `SELECT id FROM submissions 
-       WHERE reference = ? AND type = 'submission' LIMIT 1`,
-      [reference]
-    );
+    const subs = await Submission.find({
+      reference,
+      type: "submission"
+    }).limit(1);
 
     const expertSubmitted = subs.length > 0;
-    const arrearsExist = (Number(assignment.budget || 0) - Number(assignment.depositPaid || 0)) > 0;
+
+    const arrearsExist =
+      (Number(assignment.budget || 0) - Number(assignment.depositPaid || 0)) > 0;
 
     if (!expertSubmitted || arrearsExist) {
       return res.status(403).json({ error: "Action not allowed" });
     }
 
-    await db.query(
-      `UPDATE assignments 
-       SET status = 'completed', rating = ?, feedback = ?, completedAt = NOW()
-       WHERE reference = ?`,
-      [rating || null, feedback || null, reference]
+    await Assignment.updateOne(
+      { reference },
+      {
+        status: "completed",
+        rating: rating || null,
+        feedback: feedback || null,
+        completedAt: new Date()
+      }
     );
 
     if (feedback) {
-      await db.query(
-        `INSERT INTO submissions 
-         (reference, submissionText, type, isClient, rating)
-         VALUES (?, ?, 'feedback', TRUE, ?)`,
-        [reference, feedback, rating || null]
-      );
+      await Submission.create({
+        reference,
+        submissionText: feedback,
+        type: "feedback",
+        isClient: true,
+        rating: rating || null
+      });
     }
 
     res.sendStatus(200);
@@ -218,48 +213,48 @@ router.post("/api/complete-assignment", requireClientAPI, async (req, res) => {
 router.post("/api/request-revision", requireClientAPI, async (req, res) => {
   try {
     const { reference, request } = req.body;
-    if (!reference || !request) return res.status(400).json({ error: "Invalid data" });
+    if (!reference || !request)
+      return res.status(400).json({ error: "Invalid data" });
 
-    const [[assignment]] = await db.query(
-      `SELECT budget, depositPaid, EXPERT_ID, title 
-       FROM assignments 
-       WHERE reference = ? AND CLIENT_ID = ?`,
-      [reference, req.session.client.id]
-    );
+    const assignment = await Assignment.findOne({
+      reference,
+      CLIENT_ID: req.session.client.id
+    }).select("budget depositPaid EXPERT_ID title");
 
-    if (!assignment) return res.status(404).json({ error: "Assignment not found" });
+    if (!assignment)
+      return res.status(404).json({ error: "Assignment not found" });
 
-    const [subs] = await db.query(
-      `SELECT id FROM submissions 
-       WHERE reference = ? AND type = 'submission' LIMIT 1`,
-      [reference]
-    );
+    const subs = await Submission.find({
+      reference,
+      type: "submission"
+    }).limit(1);
 
     const expertSubmitted = subs.length > 0;
-    const arrearsExist = (Number(assignment.budget || 0) - Number(assignment.depositPaid || 0)) > 0;
+
+    const arrearsExist =
+      (Number(assignment.budget || 0) - Number(assignment.depositPaid || 0)) > 0;
 
     if (!expertSubmitted || arrearsExist) {
       return res.status(403).json({ error: "Action not allowed" });
     }
 
-    await db.query(
-      `UPDATE assignments SET status = 'Revision Requested' WHERE reference = ?`,
-      [reference]
+    await Assignment.updateOne(
+      { reference },
+      { status: "Revision Requested" }
     );
 
-    await db.query(
-      `INSERT INTO submissions 
-       (reference, submissionText, type, isClient)
-       VALUES (?, ?, 'revision_request', TRUE)`,
-      [reference, request]
-    );
+    await Submission.create({
+      reference,
+      submissionText: request,
+      type: "revision_request",
+      isClient: true
+    });
 
-    const [[expert]] = await db.query(
-      `SELECT EXPERT_NAME, EXPERT_EMAIL FROM experts WHERE id = ?`,
-      [assignment.EXPERT_ID]
-    );
+    const expert = await Expert.findById(assignment.EXPERT_ID)
+      .select("EXPERT_NAME EXPERT_EMAIL");
 
-    if (!expert) return res.status(404).json({ error: "Expert not found" });
+    if (!expert)
+      return res.status(404).json({ error: "Expert not found" });
 
     const workLink = `${process.env.BASE_URL}/assignments/work/chat?ref=${reference}`;
 
