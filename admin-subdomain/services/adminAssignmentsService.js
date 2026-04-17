@@ -1,6 +1,6 @@
 const {
     Assignment
-} = require("../models");
+} = require("../../models");
 
 /* ================= COUNTS ================= */
 
